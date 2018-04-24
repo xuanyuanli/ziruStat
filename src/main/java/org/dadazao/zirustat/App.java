@@ -33,20 +33,27 @@ public class App {
 
 	private static void showHtml() throws IOException {
 		String pattern = "new AMap.Marker({ position : [%s,%s], map:map, label:{ offset : new AMap.Pixel(20, 20), content : '%s'}});";
-		
+
 		Path subwayPath = Paths.get(PROJECT_DIR, SUBWAY_LOCATION_JSON_PATH);
 		String json = Files.readAllLines(subwayPath).get(0);
 		List<Subway> subways = JSON.parseArray(json, Subway.class);
 		StringBuilder markers = new StringBuilder();
 		for (Subway subway : subways) {
 			double price = subway.getSquareMeterOfPrice();
-			price = (double)Math.round(price*10*15)/10;  //只保留一位小数。这里顺便计算了15平米的价格
-			markers.append("		").append(String.format(pattern, subway.getLongitude(),subway.getLatitude(),price+"")).append("\n");
+			price = (double) Math.round(price * 10 * 15) / 10; // 只保留一位小数。这里顺便计算了15平米的价格
+			markers.append("		")
+					.append(String.format(pattern, subway.getLongitude(), subway.getLatitude(), price + ""))
+					.append("\n");
 		}
-		Path path = Paths.get(PROJECT_DIR, "show.html");
+		Path path = Paths.get(PROJECT_DIR, "showTemplate.html");
 		String content = new String(Files.readAllBytes(path));
 		content = content.replace("&&&", markers.toString());
-		Files.write(path, content.getBytes());
+
+		Path descPath = Paths.get(PROJECT_DIR, "show.html");
+		if (!Files.exists(descPath)) {
+			Files.createFile(descPath);
+		}
+		Files.write(descPath, content.getBytes());
 	}
 
 	/** 获得地铁的经纬度 */
