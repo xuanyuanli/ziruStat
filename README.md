@@ -1,7 +1,7 @@
 # 起始
 换公司之后，面临着在路上的烦恼，住的太远，花费时间太长。      
 决定换个房子，为了有一个全局的眼光，想到抓取一下数据并在地图上直观显示出来的点子。效果如下： 
-![效果图](https://raw.githubusercontent.com/li15038043160/ziruStat/master/images/QQ%E6%88%AA%E5%9B%BE20180424162421.png)
+![效果图](images/QQ%E6%88%AA%E5%9B%BE20180424162421.png)
 
 # 环境
 JDK版本：1.8    
@@ -13,4 +13,12 @@ JDK版本：1.8
 
 # 使用
 直接运行App类，在项目目录下会得到subway.json、subwaLocation.json和show.html。      
-用浏览器打开show.html就可以看到效果了   
+用浏览器打开show.html就可以看到效果了。  
+
+---
+
+App中有一个DEFAULT_CLAC_SQUARE_METER常量，表示默认呈现出来的平方数价格，默认是10，可以修改；  
+如果想重新运行程序，需要先把对应的文件删除，三个文件分别表示：
+- subwaLocation.json  地铁的地理位置数据
+- subway.json	地铁附近每平米房价信息
+- show.html		房价在地图上的分布信息展示页面

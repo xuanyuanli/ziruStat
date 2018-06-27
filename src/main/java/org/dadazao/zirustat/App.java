@@ -25,6 +25,9 @@ public class App {
 	/** 项目目录 */
 	public static final String PROJECT_DIR = System.getProperty("user.dir");
 
+	/** 默认计算的平方数 */
+	public static final int DEFAULT_CLAC_SQUARE_METER = 10;
+
 	public static void main(String[] args) throws IOException {
 		obtainPriceInfo();
 		obtainSubwayLocation();
@@ -40,7 +43,7 @@ public class App {
 		StringBuilder markers = new StringBuilder();
 		for (Subway subway : subways) {
 			double price = subway.getSquareMeterOfPrice();
-			price = (double) Math.round(price * 10 * 15) / 10; // 只保留一位小数。这里顺便计算了15平米的价格
+			price = (double) Math.round(price * 10 * DEFAULT_CLAC_SQUARE_METER) / 10; // 只保留一位小数。这里顺便计算了15平米的价格
 			markers.append("		")
 					.append(String.format(pattern, subway.getLongitude(), subway.getLatitude(), price + ""))
 					.append("\n");
@@ -94,7 +97,9 @@ public class App {
 
 	/** 获得地铁站附近房子每平米每月的价格 */
 	private static double getSquareMeterOfPrice(String url) throws IOException {
-		Document document = Jsoup.connect(convertTenMinuteFilter(url)).get();
+		url = convertTenMinuteFilter(url);
+		// System.out.println(url);
+		Document document = Jsoup.connect(url).get();
 		Elements liEles = document.select("#houseList li");
 		List<Double> meterOfPrice = new ArrayList<Double>();
 		for (Element liEle : liEles) {
@@ -106,9 +111,10 @@ public class App {
 				double meter = Double.parseDouble(text);
 				// 获得价格
 				text = priceText.replace("￥", "").replace("(每月)", "").trim();
-				double price = Double.parseDouble(text);
-
-				meterOfPrice.add(price / meter);
+				if (text.length() > 0) {
+					double price = Double.parseDouble(text);
+					meterOfPrice.add(price / meter);
+				}
 			}
 		}
 		return meterOfPrice.stream().collect(Collectors.summarizingDouble(t -> t)).getAverage();
