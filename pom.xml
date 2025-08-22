@@ -2,37 +2,44 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>org.dadazao</groupId>
-	<artifactId>zirustat</artifactId>
-	<version>1.0.1</version>
+	<parent>
+		<groupId>cn.xuanyuanli</groupId>
+		<artifactId>jujube-parent</artifactId>
+		<version>3.1.2</version>
+		<relativePath/>
+	</parent>
+
+	<artifactId>rent-radar</artifactId>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 
-	<name>zirustat</name>
-	<url>http://maven.apache.org</url>
+	<name>Rent Radar</name>
+	<description>北京租房价格雷达</description>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<java.version>1.8</java.version>
+		<java.version>21</java.version>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 	</properties>
 
 	<dependencies>
 		<dependency>
-			<!-- jsoup HTML parser library @ https://jsoup.org/ -->
+			<groupId>cn.xuanyuanli</groupId>
+			<artifactId>playwright-stealth-pool</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+		<dependency>
 			<groupId>org.jsoup</groupId>
 			<artifactId>jsoup</artifactId>
-			<version>1.11.3</version>
 		</dependency>
 		<dependency>
-			<groupId>com.alibaba</groupId>
-			<artifactId>fastjson</artifactId>
-			<version>1.2.46</version>
+			<groupId>com.alibaba.fastjson2</groupId>
+			<artifactId>fastjson2</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>3.8.1</version>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

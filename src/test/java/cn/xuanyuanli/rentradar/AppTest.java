@@ -1,4 +1,4 @@
-package org.dadazao.zirustat;
+package cn.xuanyuanli.rentradar;
 
 import java.io.IOException;
 
