@@ -41,12 +41,17 @@ public class SubwayDataService {
     private List<Subway> getPriceData() throws CrawlerException, IOException {
         String priceFile = config.getPriceJsonFile();
         
-        if (config.isCacheEnabled() && FileUtils.exists(priceFile)) {
-            System.out.println("从缓存加载价格数据: " + priceFile);
-            String json = FileUtils.readFromFile(priceFile);
-            List<Subway> subways = JsonUtils.parseArray(json, Subway.class);
-            if (subways != null && !subways.isEmpty()) {
-                return subways;
+        if (config.isCacheEnabled()) {
+            if (FileUtils.exists(priceFile) && !FileUtils.isCacheExpired(priceFile, config.getCacheExpireDays())) {
+                System.out.println("从缓存加载价格数据: " + priceFile);
+                String json = FileUtils.readFromFile(priceFile);
+                List<Subway> subways = JsonUtils.parseArray(json, Subway.class);
+                if (subways != null && !subways.isEmpty()) {
+                    return subways;
+                }
+            } else if (FileUtils.exists(priceFile)) {
+                System.out.println("缓存文件已过期，删除并重新抓取: " + priceFile);
+                FileUtils.deleteExpiredCache(priceFile, config.getCacheExpireDays());
             }
         }
         
@@ -86,12 +91,17 @@ public class SubwayDataService {
     private List<Subway> getLocationData(List<Subway> subways) throws IOException {
         String locationFile = config.getLocationJsonFile();
         
-        if (config.isCacheEnabled() && FileUtils.exists(locationFile)) {
-            System.out.println("从缓存加载位置数据: " + locationFile);
-            String json = FileUtils.readFromFile(locationFile);
-            List<Subway> cachedSubways = JsonUtils.parseArray(json, Subway.class);
-            if (cachedSubways != null && !cachedSubways.isEmpty()) {
-                return cachedSubways;
+        if (config.isCacheEnabled()) {
+            if (FileUtils.exists(locationFile) && !FileUtils.isCacheExpired(locationFile, config.getCacheExpireDays())) {
+                System.out.println("从缓存加载位置数据: " + locationFile);
+                String json = FileUtils.readFromFile(locationFile);
+                List<Subway> cachedSubways = JsonUtils.parseArray(json, Subway.class);
+                if (cachedSubways != null && !cachedSubways.isEmpty()) {
+                    return cachedSubways;
+                }
+            } else if (FileUtils.exists(locationFile)) {
+                System.out.println("缓存文件已过期，删除并重新抓取: " + locationFile);
+                FileUtils.deleteExpiredCache(locationFile, config.getCacheExpireDays());
             }
         }
         

@@ -5,6 +5,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -79,5 +82,33 @@ public final class FileUtils {
             return 0;
         }
         return Files.size(path);
+    }
+    
+    public static boolean isCacheExpired(String filePath, Duration maxAge) throws IOException {
+        Path path = Paths.get(filePath);
+        if (!Files.exists(path)) {
+            return true;
+        }
+        
+        FileTime lastModified = Files.getLastModifiedTime(path);
+        Instant fileInstant = lastModified.toInstant();
+        Instant now = Instant.now();
+        
+        Duration fileAge = Duration.between(fileInstant, now);
+        return fileAge.compareTo(maxAge) > 0;
+    }
+    
+    public static boolean isCacheExpired(String filePath, int daysToExpire) throws IOException {
+        return isCacheExpired(filePath, Duration.ofDays(daysToExpire));
+    }
+    
+    public static void deleteExpiredCache(String filePath, Duration maxAge) throws IOException {
+        if (isCacheExpired(filePath, maxAge)) {
+            deleteFile(filePath);
+        }
+    }
+    
+    public static void deleteExpiredCache(String filePath, int daysToExpire) throws IOException {
+        deleteExpiredCache(filePath, Duration.ofDays(daysToExpire));
     }
 }

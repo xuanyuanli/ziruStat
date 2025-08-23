@@ -66,6 +66,10 @@ public class AppConfig {
         return getBooleanProperty("data.cache.enabled", true);
     }
     
+    public int getCacheExpireDays() {
+        return getIntProperty("data.cache.expireDays", 7);
+    }
+    
     public String getBaseDir() {
         return getProperty("data.output.baseDir", "build");
     }
