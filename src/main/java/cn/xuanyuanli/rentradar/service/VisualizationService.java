@@ -33,6 +33,7 @@ public class VisualizationService {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         String html = template
+                .replace("{{GAODE_API_KEY}}", config.getGaodeApiKey())
                 .replace("{{MARKERS}}", markers)
                 .replace("{{STATISTICS}}", statistics)
                 .replace("{{GENERATED_TIME}}", timestamp);
@@ -44,19 +45,17 @@ public class VisualizationService {
         System.out.println("包含 " + subways.size() + " 个地铁站的价格信息");
     }
 
-    private String loadTemplate() {
-        // 尝试从resources加载模板
+    private String loadTemplate() throws IOException {
+        // 从resources加载模板
         String templatePath = config.getMapTemplate();
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(templatePath)) {
             if (input != null) {
                 return new String(input.readAllBytes(), StandardCharsets.UTF_8);
             }
-        } catch (IOException e) {
-            System.out.println("模板文件加载失败: " + templatePath + ", 使用默认模板");
+        } catch (Exception e) {
+            System.out.println("模板文件加载失败: " + templatePath);
         }
-
-        // 如果资源文件不存在，使用内置模板
-        return getDefaultTemplate();
+        throw new IOException("模板文件未找到: " + templatePath);
     }
 
     private String buildMarkers(List<Subway> subways) {
@@ -147,36 +146,4 @@ public class VisualizationService {
         );
     }
 
-    private String getDefaultTemplate() {
-        return """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>北京地铁租房价格分布图</title>
-                    <script src="https://webapi.amap.com/maps?v=1.4.15&key=YOUR_KEY"></script>
-                    <style>
-                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-                        #container { height: 100vh; width: 100%; }
-                        .statistics { position: absolute; top: 10px; right: 10px; z-index: 999; background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-                        .info { position: absolute; bottom: 10px; left: 10px; z-index: 999; background: white; padding: 10px; border-radius: 5px; font-size: 12px; }
-                    </style>
-                </head>
-                <body>
-                    <div id="container"></div>
-                    {{STATISTICS}}
-                    <div class='info'>生成时间: {{GENERATED_TIME}}</div>
-                   \s
-                    <script>
-                        var map = new AMap.Map('container', {
-                            zoom: 10,
-                            center: [116.397428, 39.90923]
-                        });
-                       \s
-                        // 地铁站标记
-                        {{MARKERS}}
-                    </script>
-                </body>
-                </html>""";
-    }
 }

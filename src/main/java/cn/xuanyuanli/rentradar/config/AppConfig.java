@@ -118,6 +118,16 @@ public class AppConfig {
 
     // 工具方法
     private String getProperty(String key, String defaultValue) {
+        // 先从环境变量中获取，将点号转换为下划线并转为大写
+        String envKey = key.replace(".", "_").toUpperCase();
+        String envValue = System.getenv(envKey);
+        
+        // 如果环境变量存在，直接返回（不需要解析占位符，因为环境变量通常是最终值）
+        if (envValue != null && !envValue.trim().isEmpty()) {
+            return envValue;
+        }
+        
+        // 否则从属性文件中获取并解析占位符
         String value = properties.getProperty(key, defaultValue);
         return resolvePlaceholders(value);
     }

@@ -58,9 +58,18 @@ build/
 
 用浏览器打开 `build/output/show.html` 即可查看价格分布地图。
 
+
 ## 配置说明
 
+### 配置优先级
+系统支持多种配置方式，优先级如下：
+1. **环境变量** (最高优先级)
+2. **配置文件** (`application.properties`)
+3. **默认值** (最低优先级)
+
 ### 主要配置项
+
+#### 方式一：配置文件
 编辑 `src/main/resources/application.properties`：
 
 ```properties
@@ -69,12 +78,37 @@ data.defaultSquareMeter=10
 
 # 高德地图API配置
 gaode.api.key=your_api_key_here
+gaode.api.privateKey=your_private_key_here
 gaode.api.city=010
 
 # 爬虫行为配置
 crawler.retry.maxAttempts=3
 crawler.delay.betweenRequests=2000
+crawler.timeout.pageLoad=30000
+
+# 缓存配置
 data.cache.enabled=true
+data.cache.expireDays=7
+
+# 输出目录配置
+data.output.baseDir=build
+data.output.dataDir=build/data
+data.output.outputDir=build/output
+
+# 价格分析配置
+price.analysis.minReasonablePrice=10.0
+price.analysis.maxReasonablePrice=1000.0
+```
+
+#### 方式二：环境变量（推荐用于敏感信息）
+```bash
+# 高德地图API密钥（将点号转为下划线，转为大写）
+export GAODE_API_KEY="your_api_key_here"
+export GAODE_API_PRIVATEKEY="your_private_key_here"
+
+# 其他配置示例
+export DATA_DEFAULTSQUAREMETER="15"
+export CRAWLER_RETRY_MAXATTEMPTS="5"
 ```
 
 ### 重新运行程序
@@ -89,9 +123,15 @@ rm -rf build/data
 
 ## 项目特色
 
+### ⚙️ 灵活配置管理
+- 支持环境变量配置，便于容器化部署
+- 多层级配置优先级（环境变量 > 配置文件 > 默认值）
+- 占位符解析支持，配置文件可引用其他配置项
+
 ### 🔄 智能缓存机制
 - 本地数据缓存，避免重复网络请求
 - 支持增量更新，提高运行效率
+- 可配置缓存过期时间（默认7天）
 
 ### 🛡️ 反爬虫保护
 - 使用 playwright-stealth-pool 规避检测
@@ -102,6 +142,7 @@ rm -rf build/data
 - 多层数据验证和清洗
 - 异常处理和重试机制
 - 详细的执行日志和统计信息
+- 价格合理性检查和过滤
 
 ### 🎯 模块化架构
 - 清晰的服务分层设计
