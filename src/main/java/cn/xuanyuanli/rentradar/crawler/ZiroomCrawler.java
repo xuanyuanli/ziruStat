@@ -1,16 +1,15 @@
 package cn.xuanyuanli.rentradar.crawler;
 
-import cn.xuanyuanli.playwright.stealth.config.PlaywrightConfig;
-import cn.xuanyuanli.playwright.stealth.config.StealthMode;
-import cn.xuanyuanli.playwright.stealth.manager.PlaywrightManager;
+import cn.xuanyuanli.playwright.stealth.manager.PlaywrightBrowserManager;
 import cn.xuanyuanli.rentradar.config.AppConfig;
 import cn.xuanyuanli.rentradar.exception.CrawlerException;
 import cn.xuanyuanli.rentradar.model.RentalPrice;
 import cn.xuanyuanli.rentradar.model.Subway;
-import cn.xuanyuanli.rentradar.utils.RetryUtils;
 import cn.xuanyuanli.rentradar.utils.PriceSpriteDecoder;
+import cn.xuanyuanli.rentradar.utils.RetryUtils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.WaitUntilState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +23,7 @@ import java.util.regex.Pattern;
  * 负责从自如租房网站爬取地铁站信息和租房价格数据，
  * 使用Playwright进行网页自动化操作和反爬虫规避。
  * </p>
- * 
+ *
  * <p>主要功能：</p>
  * <ul>
  *   <li>获取北京地区所有地铁站列表和链接</li>
@@ -32,26 +31,23 @@ import java.util.regex.Pattern;
  *   <li>解析房源信息并计算平均每平米价格</li>
  *   <li>支持重试机制和错误处理</li>
  * </ul>
- * 
+ *
  * @author xuanyuanli
  * @since 1.0.0
  */
 @SuppressWarnings("CallToPrintStackTrace")
 public class ZiroomCrawler {
-    private static final PlaywrightConfig PLAYWRIGHT_CONFIG = new PlaywrightConfig()
-            .setHeadless(true)
-            .setStealthMode(StealthMode.FULL)
-            .setDisableImageRender(true);
+
 
     private final AppConfig config;
-    private final PlaywrightManager playwrightManager;
+    private final PlaywrightBrowserManager playwrightManager;
 
     /**
      * 构造函数
-     * 
+     *
      * @param playwrightManager Playwright管理器，用于执行网页自动化操作
      */
-    public ZiroomCrawler(PlaywrightManager playwrightManager) {
+    public ZiroomCrawler(PlaywrightBrowserManager playwrightManager) {
         this.config = AppConfig.getInstance();
         this.playwrightManager = playwrightManager;
     }
@@ -62,7 +58,7 @@ public class ZiroomCrawler {
      * 从自如网站爬取北京地区所有地铁线路和站点信息，
      * 包括站点名称、所属线路和对应的租房页面链接。
      * </p>
-     * 
+     *
      * @return 地铁站列表，包含站点名称、线路名称和页面链接
      * @throws CrawlerException 当爬取过程中发生错误时抛出
      */
@@ -84,7 +80,7 @@ public class ZiroomCrawler {
      * 爬取指定URL页面中的房源信息，解析每套房源的租金和面积，
      * 计算平均每平米价格。支持重试机制，失败时返回0.0。
      * </p>
-     * 
+     *
      * @param url 地铁站对应的租房页面URL
      * @return 该地铁站附近房源的平均每平米价格，获取失败时返回0.0
      */
@@ -107,26 +103,25 @@ public class ZiroomCrawler {
      * 通过Playwright访问自如网站首页，点击地铁选项展开地铁线路列表，
      * 然后依次访问每条线路页面获取该线路下的所有站点信息。
      * </p>
-     * 
+     *
      * @return 爬取到的地铁站列表
      */
     private List<Subway> crawlSubwayStations() {
         List<Subway> subways = new ArrayList<>();
 
-        playwrightManager.execute(PLAYWRIGHT_CONFIG, page -> {
+        playwrightManager.execute(page -> {
             try {
                 System.out.println("开始获取地铁站列表...");
 
                 // 1. 访问租房首页
-                page.navigate("https://www.ziroom.com/z/");
-                page.waitForLoadState();
+                page.navigate("https://www.ziroom.com/z/", new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
 
                 // 2. 点击地铁选项展开地铁线路
-                page.locator("span:has-text('地铁')").click();
+                page.locator("span.opt-name:has-text('地铁')").click();
                 page.waitForTimeout(2000);
 
                 // 3. 获取所有地铁线路链接（从dropdown中）
-                Locator subwayLines = page.locator("a[href*='/z/s'][href*='100007']");
+                Locator subwayLines = page.locator("span.opt-name:has-text('地铁') + div").locator(".wrapper a.item");
                 int lineCount = subwayLines.count();
 
                 System.out.println("找到 " + lineCount + " 条地铁线路");
@@ -140,9 +135,8 @@ public class ZiroomCrawler {
                         if (lineHref.isEmpty() || lineName.isEmpty()) {
                             continue;
                         }
-
-                        if (!lineHref.startsWith("http")) {
-                            lineHref = "https://www.ziroom.com" + lineHref;
+                        if (lineHref.startsWith("//")){
+                            lineHref = "https:" + lineHref;
                         }
 
                         System.out.println("正在处理地铁线路: " + lineName);
@@ -150,19 +144,11 @@ public class ZiroomCrawler {
                         // 访问线路页面获取站点
                         List<Subway> stationsInLine = getStationsInLine(page, lineHref, lineName);
                         subways.addAll(stationsInLine);
-
-                        // 限制抓取数量，避免过度请求
-                        if (subways.size() > 50) {
-                            System.out.println("已获取50个地铁站，停止抓取");
-                            break;
-                        }
-
                     } catch (Exception e) {
                         System.out.println("处理地铁线路出错: " + e.getMessage());
                         e.printStackTrace();
                     }
                 }
-
             } catch (Exception e) {
                 System.out.println("获取地铁站链接失败: " + e.getMessage());
                 e.printStackTrace();
@@ -175,8 +161,8 @@ public class ZiroomCrawler {
 
     /**
      * 获取指定地铁线路下的所有站点信息
-     * 
-     * @param page 当前的Playwright页面对象
+     *
+     * @param page     当前的Playwright页面对象
      * @param lineHref 地铁线路的页面链接
      * @param lineName 地铁线路名称
      * @return 该线路下的所有地铁站列表
@@ -185,12 +171,10 @@ public class ZiroomCrawler {
         List<Subway> stations = new ArrayList<>();
 
         try {
-            page.navigate(lineHref);
-            page.waitForLoadState();
-            page.waitForTimeout(2000);
+            page.navigate(lineHref, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
 
             // 查找站点链接，从展开的地铁站列表中获取
-            Locator stationLinks = page.locator("a[href*='/z/s'][href*='100007'][href*='-t']");
+            Locator stationLinks = page.locator(".grand-child-opt a.checkbox");
             int stationCount = stationLinks.count();
 
             System.out.println("线路 " + lineName + " 找到 " + stationCount + " 个站点");
@@ -203,9 +187,8 @@ public class ZiroomCrawler {
                 if (stationHref.isEmpty() || stationName.isEmpty()) {
                     continue;
                 }
-
-                if (!stationHref.startsWith("http")) {
-                    stationHref = "https://www.ziroom.com" + stationHref;
+                if (stationHref.startsWith("//")){
+                    stationHref = "https:" + stationHref;
                 }
 
                 Subway subway = new Subway(stationName, lineName, stationHref);
@@ -228,19 +211,17 @@ public class ZiroomCrawler {
      * 访问地铁站对应的租房页面，查找页面中的房源列表项，
      * 解析每个房源的价格和面积信息，计算平均每平米价格。
      * </p>
-     * 
+     *
      * @param url 要爬取的租房页面URL
      * @return 该页面房源的平均每平米价格，没有有效数据时返回0.0
      */
     private double crawlPriceData(String url) {
         List<Double> pricePerMeters = new ArrayList<>();
 
-        playwrightManager.execute(PLAYWRIGHT_CONFIG, page -> {
+        playwrightManager.execute(page -> {
             try {
-                page.navigate(url);
-                page.waitForLoadState();
-                page.waitForTimeout(2000);
-                
+                page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+
                 // 精灵图前置检测
                 if (!performSpritePreflightCheck(page)) {
                     printUserFriendlyErrorMessage();
@@ -248,27 +229,15 @@ public class ZiroomCrawler {
                 }
 
                 // 根据实际网站结构查找房源列表项
-                Locator houseItems = page.locator("div[class*='item']");
+                Locator houseItems = page.locator(".Z_list-box div.item");
                 int itemCount = houseItems.count();
-
-                if (itemCount == 0) {
-                    // 尝试其他可能的选择器
-                    houseItems = page.locator("*:has-text('居室')");
-                    itemCount = houseItems.count();
-                }
-
-                if (itemCount == 0) {
-                    // 再尝试更宽泛的选择器
-                    houseItems = page.locator("div:has(h5):has-text('㎡')");
-                    itemCount = houseItems.count();
-                }
 
                 System.out.println("从页面找到 " + itemCount + " 个房源项");
 
                 for (int i = 0; i < itemCount; i++) {
                     try {
                         Locator houseItem = houseItems.nth(i);
-                        RentalPrice price = parseRentalInfoWithJavaScript(page, houseItem);
+                        RentalPrice price = parsePriceFromSprites(houseItem);
                         if (price != null && isValidPrice(price)) {
                             pricePerMeters.add(price.getPricePerSquareMeter());
                         }
@@ -294,41 +263,12 @@ public class ZiroomCrawler {
     }
 
     /**
-     * 使用JavaScript和CSS精灵图解码解析房源元素的租金信息
-     * <p>
-     * 专门处理自如网站使用CSS精灵图显示价格的情况，
-     * 通过JavaScript提取精灵图位置信息并使用解码器转换为实际价格。
-     * </p>
-     * 
-     * @param page Playwright页面对象
-     * @param element 包含房源信息的页面元素
-     * @return 解析成功的租金价格对象，失败时返回null
-     */
-    private RentalPrice parseRentalInfoWithJavaScript(Page page, Locator element) {
-        try {
-            // 首先尝试使用精灵图解码
-            RentalPrice spritePrice = parsePriceFromSprites(element);
-            if (spritePrice != null) {
-                return spritePrice;
-            }
-            
-            // 如果精灵图解码失败，使用传统方法
-            return parsePriceWithFallback(element);
-            
-        } catch (Exception e) {
-            System.out.println("房源信息解析失败: " + e.getMessage());
-        }
-
-        return null;
-    }
-    
-    /**
      * 从CSS精灵图中解析价格
      * <p>
      * 查找页面中class为'num'的span元素，提取其background-position样式，
      * 使用PriceSpriteDecoder将位置信息解码为实际数字。
      * </p>
-     * 
+     *
      * @param element 包含房源信息的页面元素
      * @return 解码成功的租金价格对象，失败时返回null
      */
@@ -340,32 +280,32 @@ public class ZiroomCrawler {
             if (area <= 0) {
                 return null;
             }
-            
+
             // 获取价格精灵图元素的样式信息
             Object result = element.evaluate("(element) => {" +
-                "const priceSpans = element.querySelectorAll('span.num');" +
-                "const spanData = [];" +
-                "for (let span of priceSpans) {" +
-                "    const style = span.style.cssText || span.getAttribute('style') || '';" +
-                "    const bgImage = span.style.backgroundImage || '';" +
-                "    if (bgImage.includes('price') || bgImage.includes('new-list')) {" +
-                "        spanData.push({" +
-                "            style: style," +
-                "            backgroundImage: bgImage," +
-                "            backgroundPosition: span.style.backgroundPosition || ''" +
-                "        });" +
-                "    }" +
-                "}" +
-                "return spanData;" +
-            "}");
-            
+                    "const priceSpans = element.querySelectorAll('span.num');" +
+                    "const spanData = [];" +
+                    "for (let span of priceSpans) {" +
+                    "    const style = span.style.cssText || span.getAttribute('style') || '';" +
+                    "    const bgImage = span.style.backgroundImage || '';" +
+                    "    if (bgImage.includes('price') || bgImage.includes('new-list')) {" +
+                    "        spanData.push({" +
+                    "            style: style," +
+                    "            backgroundImage: bgImage," +
+                    "            backgroundPosition: span.style.backgroundPosition || ''" +
+                    "        });" +
+                    "    }" +
+                    "}" +
+                    "return spanData;" +
+                    "}");
+
             if (result instanceof List) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
-                
+
                 if (!spanDataList.isEmpty()) {
                     String priceStr = PriceSpriteDecoder.decodePrice(spanDataList);
-                    
+
                     if (PriceSpriteDecoder.isValidPrice(priceStr)) {
                         double price = Double.parseDouble(priceStr);
                         System.out.println("精灵图解码成功: 价格=" + price + ", 面积=" + area);
@@ -380,74 +320,74 @@ public class ZiroomCrawler {
                     }
                 }
             }
-            
+
         } catch (Exception e) {
             System.out.println("精灵图解析出错: " + e.getMessage());
         }
-        
+
         return null;
     }
-    
+
     /**
      * 执行精灵图前置检测
      * <p>
      * 在开始爬取数据前，先检测页面中使用的精灵图类型。
      * 如果发现未知的精灵图，立即终止程序并提供用户指导。
      * </p>
-     * 
+     *
      * @param page Playwright页面对象
      * @return 检测通过返回true，发现未知精灵图返回false
      */
     private boolean performSpritePreflightCheck(Page page) {
         try {
             System.out.println("正在执行精灵图前置检测...");
-            
+
             // 查找所有价格相关的span元素
-            Object result = page.evaluate("() => {" +
-                "const priceSpans = document.querySelectorAll('span.num, span[class*=\"num\"]');" +
-                "const spanData = [];" +
-                "for (let i = 0; i < Math.min(priceSpans.length, 10); i++) {" +  // 只检测前10个元素
-                "    const span = priceSpans[i];" +
-                "    const style = span.style.cssText || span.getAttribute('style') || '';" +
-                "    const bgImage = span.style.backgroundImage || '';" +
-                "    if (bgImage.includes('price') || bgImage.includes('new-list') || bgImage.includes('pricenumber')) {" +
-                "        spanData.push({" +
-                "            style: style," +
-                "            backgroundImage: bgImage," +
-                "            backgroundPosition: span.style.backgroundPosition || ''" +
-                "        });" +
-                "    }" +
-                "}" +
-                "return spanData;" +
-            "}");
-            
+            // 只检测前10个元素
+            Object result = page.evaluate("""
+                    () => {
+                    const priceSpans = document.querySelectorAll('span.num, span[class*="num"]');
+                    const spanData = [];
+                    for (let i = 0; i < Math.max(priceSpans.length, 10); i++) {
+                        const span = priceSpans[i];
+                        const style = span.style.cssText || span.getAttribute('style') || '';
+                        const bgImage = span.style.backgroundImage || '';\
+                        spanData.push({
+                            style: style,
+                            backgroundImage: bgImage,
+                            backgroundPosition: span.style.backgroundPosition || ''
+                        });
+                    }
+                    return spanData;
+                    }""");
+
             if (result instanceof List) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
-                
+
                 if (!spanDataList.isEmpty()) {
                     // 使用PriceSpriteDecoder进行检测
-                    PriceSpriteDecoder.SpriteDetectionResult detection = 
-                        PriceSpriteDecoder.detectUnknownSprite(spanDataList);
-                    
+                    PriceSpriteDecoder.SpriteDetectionResult detection =
+                            PriceSpriteDecoder.detectUnknownSprite(spanDataList);
+
                     System.out.println("精灵图检测结果: " + detection.getMessage());
-                    
+
                     if (!detection.isKnownSprite()) {
                         // 输出详细的调试信息
                         System.err.println("========== 精灵图检测失败详情 ==========");
                         System.err.println(detection.getMessage());
                         System.err.println("=====================================");
-                        
+
                         // 输出收集到的精灵图数据供开发者分析
                         System.err.println("收集到的精灵图数据：");
                         for (int i = 0; i < spanDataList.size(); i++) {
                             Map<String, Object> spanData = spanDataList.get(i);
-                            System.err.println("  元素" + (i+1) + ":");
+                            System.err.println("  元素" + (i + 1) + ":");
                             System.err.println("    样式: " + spanData.get("style"));
                             System.err.println("    背景图片: " + spanData.get("backgroundImage"));
                             System.err.println("    位置: " + spanData.get("backgroundPosition"));
                         }
-                        
+
                         return false; // 发现未知精灵图，检测失败
                     } else {
                         System.out.println("精灵图检测通过，使用: " + detection.getSpriteType().getDescription());
@@ -458,16 +398,16 @@ public class ZiroomCrawler {
                     return true; // 没有精灵图元素，放行（可能使用其他显示方式）
                 }
             }
-            
+
             return true; // 默认放行
-            
+
         } catch (Exception e) {
             System.err.println("精灵图检测过程中出现异常: " + e.getMessage());
             e.printStackTrace();
             return false; // 异常情况下不放行
         }
     }
-    
+
     /**
      * 打印用户友好的错误消息和操作指导
      */
@@ -501,97 +441,17 @@ public class ZiroomCrawler {
         System.err.println("╚════════════════════════════════════════════════════════════════════╝");
         System.err.println();
     }
-    
-    /**
-     * 备用价格解析方法
-     * <p>
-     * 当精灵图解码失败时使用的传统解析方法，
-     * 尝试从文本中提取可能的价格数字。
-     * </p>
-     * 
-     * @param element 包含房源信息的页面元素
-     * @return 解析成功的租金价格对象，失败时返回null
-     */
-    private RentalPrice parsePriceWithFallback(Locator element) {
-        try {
-            Object result = element.evaluate("(element) => {" +
-                "const text = element.textContent || '';" +
-                "const priceElements = element.querySelectorAll('*');" +
-                "let price = 0;" +
-                "let area = 0;" +
-                
-                // 提取面积
-                "const areaMatch = text.match(/(\\d+(?:\\.\\d+)?)\\s*㎡/);" +
-                "if (areaMatch) {" +
-                "    area = parseFloat(areaMatch[1]);" +
-                "}" +
-                
-                // 尝试从各种可能的元素中提取价格
-                "for (let el of priceElements) {" +
-                "    const elText = el.textContent || '';" +
-                "    const priceMatch = elText.match(/￥\\s*(\\d+(?:,\\d+)?(?:\\.\\d+)?)/);" +
-                "    if (priceMatch && !elText.includes('立减') && !elText.includes('折')) {" +
-                "        const priceStr = priceMatch[1].replace(/,/g, '');" +
-                "        const priceNum = parseFloat(priceStr);" +
-                "        if (priceNum > price && priceNum < 50000) {" +
-                "            price = priceNum;" +
-                "        }" +
-                "    }" +
-                "}" +
-                
-                // 如果还没找到价格，尝试更宽松的匹配
-                "if (price === 0) {" +
-                "    const allText = element.innerText || element.textContent || '';" +
-                "    const matches = allText.match(/\\d+/g);" +
-                "    if (matches) {" +
-                "        for (let match of matches) {" +
-                "            const num = parseInt(match);" +
-                "            if (num >= 1000 && num <= 20000) {" +
-                "                price = num;" +
-                "                break;" +
-                "            }" +
-                "        }" +
-                "    }" +
-                "}" +
-                
-                "return { price: price, area: area, text: text.substring(0, 200) };" +
-            "}");
 
-            if (result instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> data = (Map<String, Object>) result;
-                
-                Object priceObj = data.get("price");
-                Object areaObj = data.get("area");
-                
-                if (priceObj instanceof Number && areaObj instanceof Number) {
-                    double price = ((Number) priceObj).doubleValue();
-                    double area = ((Number) areaObj).doubleValue();
-                    
-                    if (price > 0 && area > 0) {
-                        System.out.println("备用方法解析成功: 价格=" + price + ", 面积=" + area);
-                        return new RentalPrice(price, area);
-                    }
-                }
-            }
-            
-        } catch (Exception e) {
-            System.out.println("备用解析方法失败: " + e.getMessage());
-        }
-        
-        return null;
-    }
-    
     /**
      * 从文本中提取面积信息
-     * 
+     *
      * @param text 包含面积信息的文本
      * @return 提取到的面积，未找到时返回0
      */
     private double extractArea(String text) {
         Pattern areaPattern = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*㎡");
         Matcher areaMatcher = areaPattern.matcher(text);
-        
+
         if (areaMatcher.find()) {
             try {
                 return Double.parseDouble(areaMatcher.group(1));
@@ -599,7 +459,7 @@ public class ZiroomCrawler {
                 System.out.println("面积解析失败: " + areaMatcher.group(1));
             }
         }
-        
+
         return 0;
     }
 
@@ -609,7 +469,7 @@ public class ZiroomCrawler {
      * 检查每平米价格是否在配置的合理范围内，
      * 用于过滤异常数据和无效信息。
      * </p>
-     * 
+     *
      * @param price 要验证的租金价格对象
      * @return 价格合理返回true，否则返回false
      */

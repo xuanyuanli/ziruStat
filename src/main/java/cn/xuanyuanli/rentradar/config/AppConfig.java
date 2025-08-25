@@ -76,7 +76,7 @@ public class AppConfig {
     }
 
     public int getCacheExpireDays() {
-        return getIntProperty("data.cache.expireDays", 7);
+        return getIntProperty("data.cache.expireDays", 30);
     }
 
     public String getBaseDir() {

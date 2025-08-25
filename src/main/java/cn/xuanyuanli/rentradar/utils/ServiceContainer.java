@@ -1,5 +1,8 @@
 package cn.xuanyuanli.rentradar.utils;
 
+import cn.xuanyuanli.playwright.stealth.config.PlaywrightConfig;
+import cn.xuanyuanli.playwright.stealth.config.StealthMode;
+import cn.xuanyuanli.playwright.stealth.manager.PlaywrightBrowserManager;
 import cn.xuanyuanli.playwright.stealth.manager.PlaywrightManager;
 import cn.xuanyuanli.rentradar.crawler.ZiroomCrawler;
 import cn.xuanyuanli.rentradar.service.LocationService;
@@ -14,7 +17,11 @@ import java.util.Map;
  */
 public class ServiceContainer {
     private final Map<Class<?>, Object> services = new HashMap<>();
-    private PlaywrightManager playwrightManager;
+    private PlaywrightBrowserManager playwrightManager;
+    public static final PlaywrightConfig PLAYWRIGHT_CONFIG = new PlaywrightConfig()
+            .setHeadless(false)
+            .setStealthMode(StealthMode.DISABLED)
+            .setDisableImageRender(false).setDisableAutomationControlled(true).setDisableGpu(false);
 
     public ServiceContainer() {
         initializeServices();
@@ -27,7 +34,7 @@ public class ServiceContainer {
 
     private void initializeServices() {
         // 初始化Playwright管理器
-        playwrightManager = new PlaywrightManager(null, 2);
+        playwrightManager = new PlaywrightBrowserManager(PLAYWRIGHT_CONFIG, 1);
 
         // 创建服务实例
         LocationService locationService = new LocationService();
