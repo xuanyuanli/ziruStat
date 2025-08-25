@@ -40,15 +40,39 @@ public class ServiceContainer {
     }
 
     /**
-     * 获取指定类型的服务实例
+     * 获取地理位置服务实例
      *
-     * @param <T>          服务类型泛型
-     * @param serviceClass 服务类的Class对象
-     * @return 服务实例，如果未注册则返回null
+     * @return LocationService实例
      */
-    @SuppressWarnings("unchecked")
-    public <T> T getService(Class<T> serviceClass) {
-        return (T) services.get(serviceClass);
+    public LocationService getLocationService() {
+        return (LocationService) services.get(LocationService.class);
+    }
+
+    /**
+     * 获取自如爬虫服务实例
+     *
+     * @return ZiroomCrawler实例
+     */
+    public ZiroomCrawler getZiroomCrawler() {
+        return (ZiroomCrawler) services.get(ZiroomCrawler.class);
+    }
+
+    /**
+     * 获取地铁数据服务实例
+     *
+     * @return SubwayDataService实例
+     */
+    public SubwayDataService getSubwayDataService() {
+        return (SubwayDataService) services.get(SubwayDataService.class);
+    }
+
+    /**
+     * 获取可视化服务实例
+     *
+     * @return VisualizationService实例
+     */
+    public VisualizationService getVisualizationService() {
+        return (VisualizationService) services.get(VisualizationService.class);
     }
 
     /**

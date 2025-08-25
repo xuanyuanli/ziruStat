@@ -130,11 +130,11 @@ public class AppConfig {
 
     // 兼容旧配置
     public String getPriceJsonFile() {
-        return getProperty("data.output.priceJsonFile", "build/data/subway.json");
+        return getProperty("data.output.priceJsonFile", "build/data/subway-prices.json");
     }
 
     public String getLocationJsonFile() {
-        return getProperty("data.output.locationJsonFile", "build/data/subwayLocation.json");
+        return getProperty("data.output.locationJsonFile", "build/data/subway-locations.json");
     }
 
     public String getHtmlOutputFile() {

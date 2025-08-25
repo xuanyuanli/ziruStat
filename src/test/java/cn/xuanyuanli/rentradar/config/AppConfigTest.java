@@ -101,7 +101,7 @@ class AppConfigTest {
         
         assertEquals("build", baseDir);
         assertEquals("build/data", dataDir);
-        assertEquals("build/data/subway.json", priceJsonFile);
+        assertEquals("build/data/subway-prices.json", priceJsonFile);
     }
 
     @Test
@@ -111,8 +111,8 @@ class AppConfigTest {
         assertEquals("build", config.getBaseDir());
         assertEquals("build/data", config.getDataDir());
         assertEquals("build/output", config.getOutputDir());
-        assertEquals("build/data/subway.json", config.getPriceJsonFile());
-        assertEquals("build/data/subwayLocation.json", config.getLocationJsonFile());
+        assertEquals("build/data/subway-prices.json", config.getPriceJsonFile());
+        assertEquals("build/data/subway-locations.json", config.getLocationJsonFile());
         assertEquals("build/output/show.html", config.getHtmlOutputFile());
         assertEquals("templates/map-template.html", config.getMapTemplate());
     }

@@ -50,8 +50,8 @@ public class ZiruStatApplication {
             DirectoryUtils.initializeDirectories();
 
             // 获取服务实例
-            SubwayDataService dataService = serviceContainer.getService(SubwayDataService.class);
-            VisualizationService visualizationService = serviceContainer.getService(VisualizationService.class);
+            SubwayDataService dataService = serviceContainer.getSubwayDataService();
+            VisualizationService visualizationService = serviceContainer.getVisualizationService();
 
             // 执行核心业务流程
             System.out.println("=== 开始执行数据收集任务 ===");
