@@ -8,11 +8,13 @@ import cn.xuanyuanli.rentradar.exception.CrawlerException;
 import cn.xuanyuanli.rentradar.model.RentalPrice;
 import cn.xuanyuanli.rentradar.model.Subway;
 import cn.xuanyuanli.rentradar.utils.RetryUtils;
+import cn.xuanyuanli.rentradar.utils.PriceSpriteDecoder;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -124,7 +126,7 @@ public class ZiroomCrawler {
                 page.waitForTimeout(2000);
 
                 // 3. 获取所有地铁线路链接（从dropdown中）
-                Locator subwayLines = page.locator("a[href*='/z/s'][href*='-q']:not([href*='-t'])");
+                Locator subwayLines = page.locator("a[href*='/z/s'][href*='100007']");
                 int lineCount = subwayLines.count();
 
                 System.out.println("找到 " + lineCount + " 条地铁线路");
@@ -188,7 +190,7 @@ public class ZiroomCrawler {
             page.waitForTimeout(2000);
 
             // 查找站点链接，从展开的地铁站列表中获取
-            Locator stationLinks = page.locator("a[href*='/z/s'][href*='-t']");
+            Locator stationLinks = page.locator("a[href*='/z/s'][href*='100007'][href*='-t']");
             int stationCount = stationLinks.count();
 
             System.out.println("线路 " + lineName + " 找到 " + stationCount + " 个站点");
@@ -238,9 +240,15 @@ public class ZiroomCrawler {
                 page.navigate(url);
                 page.waitForLoadState();
                 page.waitForTimeout(2000);
+                
+                // 精灵图前置检测
+                if (!performSpritePreflightCheck(page)) {
+                    printUserFriendlyErrorMessage();
+                    throw new CrawlerException("发现未知精灵图类型，程序无法继续执行");
+                }
 
                 // 根据实际网站结构查找房源列表项
-                Locator houseItems = page.locator("div[class*='item'], .list-item, .room-item");
+                Locator houseItems = page.locator("div[class*='item']");
                 int itemCount = houseItems.count();
 
                 if (itemCount == 0) {
@@ -249,17 +257,24 @@ public class ZiroomCrawler {
                     itemCount = houseItems.count();
                 }
 
+                if (itemCount == 0) {
+                    // 再尝试更宽泛的选择器
+                    houseItems = page.locator("div:has(h5):has-text('㎡')");
+                    itemCount = houseItems.count();
+                }
+
                 System.out.println("从页面找到 " + itemCount + " 个房源项");
 
                 for (int i = 0; i < itemCount; i++) {
                     try {
                         Locator houseItem = houseItems.nth(i);
-                        RentalPrice price = parseRentalInfo(houseItem);
+                        RentalPrice price = parseRentalInfoWithJavaScript(page, houseItem);
                         if (price != null && isValidPrice(price)) {
                             pricePerMeters.add(price.getPricePerSquareMeter());
                         }
                     } catch (Exception e) {
                         // 忽略单个房源解析错误
+                        System.out.println("解析房源 " + i + " 时出错: " + e.getMessage());
                     }
                 }
 
@@ -279,53 +294,313 @@ public class ZiroomCrawler {
     }
 
     /**
-     * 解析单个房源元素的租金信息
+     * 使用JavaScript和CSS精灵图解码解析房源元素的租金信息
      * <p>
-     * 从房源元素的文本内容中提取租金价格和房间面积，
-     * 使用正则表达式匹配价格（￥数字/月）和面积（数字㎡）。
+     * 专门处理自如网站使用CSS精灵图显示价格的情况，
+     * 通过JavaScript提取精灵图位置信息并使用解码器转换为实际价格。
+     * </p>
+     * 
+     * @param page Playwright页面对象
+     * @param element 包含房源信息的页面元素
+     * @return 解析成功的租金价格对象，失败时返回null
+     */
+    private RentalPrice parseRentalInfoWithJavaScript(Page page, Locator element) {
+        try {
+            // 首先尝试使用精灵图解码
+            RentalPrice spritePrice = parsePriceFromSprites(element);
+            if (spritePrice != null) {
+                return spritePrice;
+            }
+            
+            // 如果精灵图解码失败，使用传统方法
+            return parsePriceWithFallback(element);
+            
+        } catch (Exception e) {
+            System.out.println("房源信息解析失败: " + e.getMessage());
+        }
+
+        return null;
+    }
+    
+    /**
+     * 从CSS精灵图中解析价格
+     * <p>
+     * 查找页面中class为'num'的span元素，提取其background-position样式，
+     * 使用PriceSpriteDecoder将位置信息解码为实际数字。
+     * </p>
+     * 
+     * @param element 包含房源信息的页面元素
+     * @return 解码成功的租金价格对象，失败时返回null
+     */
+    private RentalPrice parsePriceFromSprites(Locator element) {
+        try {
+            // 提取面积信息
+            String elementText = element.textContent();
+            double area = extractArea(elementText);
+            if (area <= 0) {
+                return null;
+            }
+            
+            // 获取价格精灵图元素的样式信息
+            Object result = element.evaluate("(element) => {" +
+                "const priceSpans = element.querySelectorAll('span.num');" +
+                "const spanData = [];" +
+                "for (let span of priceSpans) {" +
+                "    const style = span.style.cssText || span.getAttribute('style') || '';" +
+                "    const bgImage = span.style.backgroundImage || '';" +
+                "    if (bgImage.includes('price') || bgImage.includes('new-list')) {" +
+                "        spanData.push({" +
+                "            style: style," +
+                "            backgroundImage: bgImage," +
+                "            backgroundPosition: span.style.backgroundPosition || ''" +
+                "        });" +
+                "    }" +
+                "}" +
+                "return spanData;" +
+            "}");
+            
+            if (result instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
+                
+                if (!spanDataList.isEmpty()) {
+                    String priceStr = PriceSpriteDecoder.decodePrice(spanDataList);
+                    
+                    if (PriceSpriteDecoder.isValidPrice(priceStr)) {
+                        double price = Double.parseDouble(priceStr);
+                        System.out.println("精灵图解码成功: 价格=" + price + ", 面积=" + area);
+                        return new RentalPrice(price, area);
+                    } else {
+                        System.out.println("精灵图解码失败，价格字符串: " + priceStr);
+                        // 输出调试信息
+                        for (Map<String, Object> spanData : spanDataList) {
+                            System.out.println("  样式: " + spanData.get("style"));
+                            System.out.println("  位置: " + spanData.get("backgroundPosition"));
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            System.out.println("精灵图解析出错: " + e.getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 执行精灵图前置检测
+     * <p>
+     * 在开始爬取数据前，先检测页面中使用的精灵图类型。
+     * 如果发现未知的精灵图，立即终止程序并提供用户指导。
+     * </p>
+     * 
+     * @param page Playwright页面对象
+     * @return 检测通过返回true，发现未知精灵图返回false
+     */
+    private boolean performSpritePreflightCheck(Page page) {
+        try {
+            System.out.println("正在执行精灵图前置检测...");
+            
+            // 查找所有价格相关的span元素
+            Object result = page.evaluate("() => {" +
+                "const priceSpans = document.querySelectorAll('span.num, span[class*=\"num\"]');" +
+                "const spanData = [];" +
+                "for (let i = 0; i < Math.min(priceSpans.length, 10); i++) {" +  // 只检测前10个元素
+                "    const span = priceSpans[i];" +
+                "    const style = span.style.cssText || span.getAttribute('style') || '';" +
+                "    const bgImage = span.style.backgroundImage || '';" +
+                "    if (bgImage.includes('price') || bgImage.includes('new-list') || bgImage.includes('pricenumber')) {" +
+                "        spanData.push({" +
+                "            style: style," +
+                "            backgroundImage: bgImage," +
+                "            backgroundPosition: span.style.backgroundPosition || ''" +
+                "        });" +
+                "    }" +
+                "}" +
+                "return spanData;" +
+            "}");
+            
+            if (result instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
+                
+                if (!spanDataList.isEmpty()) {
+                    // 使用PriceSpriteDecoder进行检测
+                    PriceSpriteDecoder.SpriteDetectionResult detection = 
+                        PriceSpriteDecoder.detectUnknownSprite(spanDataList);
+                    
+                    System.out.println("精灵图检测结果: " + detection.getMessage());
+                    
+                    if (!detection.isKnownSprite()) {
+                        // 输出详细的调试信息
+                        System.err.println("========== 精灵图检测失败详情 ==========");
+                        System.err.println(detection.getMessage());
+                        System.err.println("=====================================");
+                        
+                        // 输出收集到的精灵图数据供开发者分析
+                        System.err.println("收集到的精灵图数据：");
+                        for (int i = 0; i < spanDataList.size(); i++) {
+                            Map<String, Object> spanData = spanDataList.get(i);
+                            System.err.println("  元素" + (i+1) + ":");
+                            System.err.println("    样式: " + spanData.get("style"));
+                            System.err.println("    背景图片: " + spanData.get("backgroundImage"));
+                            System.err.println("    位置: " + spanData.get("backgroundPosition"));
+                        }
+                        
+                        return false; // 发现未知精灵图，检测失败
+                    } else {
+                        System.out.println("精灵图检测通过，使用: " + detection.getSpriteType().getDescription());
+                        return true; // 已知精灵图，检测通过
+                    }
+                } else {
+                    System.out.println("未找到精灵图元素，可能网站结构发生变化");
+                    return true; // 没有精灵图元素，放行（可能使用其他显示方式）
+                }
+            }
+            
+            return true; // 默认放行
+            
+        } catch (Exception e) {
+            System.err.println("精灵图检测过程中出现异常: " + e.getMessage());
+            e.printStackTrace();
+            return false; // 异常情况下不放行
+        }
+    }
+    
+    /**
+     * 打印用户友好的错误消息和操作指导
+     */
+    private void printUserFriendlyErrorMessage() {
+        System.err.println();
+        System.err.println("╔════════════════════════════════════════════════════════════════════╗");
+        System.err.println("║                          程序执行失败                               ║");
+        System.err.println("╠════════════════════════════════════════════════════════════════════╣");
+        System.err.println("║ 检测到自如网站使用了新的价格显示精灵图，当前程序无法解析。           ║");
+        System.err.println("║                                                                    ║");
+        System.err.println("║ 这通常意味着：                                                       ║");
+        System.err.println("║ • 自如网站更新了反爬虫措施                                           ║");
+        System.err.println("║ • 启用了新版本的价格显示精灵图                                       ║");
+        System.err.println("║ • 程序需要更新以支持新的精灵图格式                                   ║");
+        System.err.println("╠════════════════════════════════════════════════════════════════════╣");
+        System.err.println("║                         解决方案                                   ║");
+        System.err.println("║                                                                    ║");
+        System.err.println("║ 1. 联系项目开发者                                                   ║");
+        System.err.println("║    - 提供以上输出的调试信息                                          ║");
+        System.err.println("║    - 说明程序执行的时间和网址                                        ║");
+        System.err.println("║                                                                    ║");
+        System.err.println("║ 2. 等待程序更新                                                     ║");
+        System.err.println("║    - 开发者会分析新的精灵图                                          ║");
+        System.err.println("║    - 添加相应的解码映射配置                                          ║");
+        System.err.println("║    - 发布新版本程序                                                  ║");
+        System.err.println("║                                                                    ║");
+        System.err.println("║ 3. 临时解决方案                                                     ║");
+        System.err.println("║    - 可以尝试稍后再运行程序                                          ║");
+        System.err.println("║    - 网站可能会回滚到旧版精灵图                                      ║");
+        System.err.println("║                                                                    ║");
+        System.err.println("╚════════════════════════════════════════════════════════════════════╝");
+        System.err.println();
+    }
+    
+    /**
+     * 备用价格解析方法
+     * <p>
+     * 当精灵图解码失败时使用的传统解析方法，
+     * 尝试从文本中提取可能的价格数字。
      * </p>
      * 
      * @param element 包含房源信息的页面元素
      * @return 解析成功的租金价格对象，失败时返回null
      */
-    private RentalPrice parseRentalInfo(Locator element) {
-        String text = element.textContent();
-
-        if (!text.contains("￥") && !text.contains("㎡")) {
-            return null;
-        }
-
+    private RentalPrice parsePriceWithFallback(Locator element) {
         try {
-            // 解析面积 - 更宽松的匹配模式
-            Pattern areaPattern = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*㎡");
-            Matcher areaMatcher = areaPattern.matcher(text);
+            Object result = element.evaluate("(element) => {" +
+                "const text = element.textContent || '';" +
+                "const priceElements = element.querySelectorAll('*');" +
+                "let price = 0;" +
+                "let area = 0;" +
+                
+                // 提取面积
+                "const areaMatch = text.match(/(\\d+(?:\\.\\d+)?)\\s*㎡/);" +
+                "if (areaMatch) {" +
+                "    area = parseFloat(areaMatch[1]);" +
+                "}" +
+                
+                // 尝试从各种可能的元素中提取价格
+                "for (let el of priceElements) {" +
+                "    const elText = el.textContent || '';" +
+                "    const priceMatch = elText.match(/￥\\s*(\\d+(?:,\\d+)?(?:\\.\\d+)?)/);" +
+                "    if (priceMatch && !elText.includes('立减') && !elText.includes('折')) {" +
+                "        const priceStr = priceMatch[1].replace(/,/g, '');" +
+                "        const priceNum = parseFloat(priceStr);" +
+                "        if (priceNum > price && priceNum < 50000) {" +
+                "            price = priceNum;" +
+                "        }" +
+                "    }" +
+                "}" +
+                
+                // 如果还没找到价格，尝试更宽松的匹配
+                "if (price === 0) {" +
+                "    const allText = element.innerText || element.textContent || '';" +
+                "    const matches = allText.match(/\\d+/g);" +
+                "    if (matches) {" +
+                "        for (let match of matches) {" +
+                "            const num = parseInt(match);" +
+                "            if (num >= 1000 && num <= 20000) {" +
+                "                price = num;" +
+                "                break;" +
+                "            }" +
+                "        }" +
+                "    }" +
+                "}" +
+                
+                "return { price: price, area: area, text: text.substring(0, 200) };" +
+            "}");
 
-            // 解析价格 - 匹配数字后跟/月的模式
-            Pattern pricePattern = Pattern.compile("￥(\\d+(?:,\\d+)?(?:\\.\\d+)?)\\s*/月");
-            Matcher priceMatcher = pricePattern.matcher(text);
-
-            // 如果没找到月租，尝试其他模式
-            if (!priceMatcher.find()) {
-                pricePattern = Pattern.compile("￥(\\d+(?:,\\d+)?(?:\\.\\d+)?)");
-                priceMatcher = pricePattern.matcher(text);
-            }
-
-            if (areaMatcher.find() && priceMatcher.find()) {
-                String areaStr = areaMatcher.group(1);
-                String priceStr = priceMatcher.group(1).replace(",", "");
-
-                double area = Double.parseDouble(areaStr);
-                double price = Double.parseDouble(priceStr);
-
-                if (area > 0 && price > 0) {
-                    return new RentalPrice(price, area);
+            if (result instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data = (Map<String, Object>) result;
+                
+                Object priceObj = data.get("price");
+                Object areaObj = data.get("area");
+                
+                if (priceObj instanceof Number && areaObj instanceof Number) {
+                    double price = ((Number) priceObj).doubleValue();
+                    double area = ((Number) areaObj).doubleValue();
+                    
+                    if (price > 0 && area > 0) {
+                        System.out.println("备用方法解析成功: 价格=" + price + ", 面积=" + area);
+                        return new RentalPrice(price, area);
+                    }
                 }
             }
-        } catch (NumberFormatException e) {
-            System.out.println("解析价格信息失败: " + text);
+            
+        } catch (Exception e) {
+            System.out.println("备用解析方法失败: " + e.getMessage());
         }
-
+        
         return null;
+    }
+    
+    /**
+     * 从文本中提取面积信息
+     * 
+     * @param text 包含面积信息的文本
+     * @return 提取到的面积，未找到时返回0
+     */
+    private double extractArea(String text) {
+        Pattern areaPattern = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*㎡");
+        Matcher areaMatcher = areaPattern.matcher(text);
+        
+        if (areaMatcher.find()) {
+            try {
+                return Double.parseDouble(areaMatcher.group(1));
+            } catch (NumberFormatException e) {
+                System.out.println("面积解析失败: " + areaMatcher.group(1));
+            }
+        }
+        
+        return 0;
     }
 
     /**
