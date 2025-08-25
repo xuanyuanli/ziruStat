@@ -8,13 +8,15 @@ import java.util.List;
 /**
  * JSON操作工具类
  * 封装fastjson2的常用操作
+ *
+ * @author xuanyuanli
  */
 public final class JsonUtils {
-    
+
     private JsonUtils() {
         // 工具类不应被实例化
     }
-    
+
     public static <T> String toJsonString(T object) {
         try {
             return JSON.toJSONString(object);
@@ -23,7 +25,7 @@ public final class JsonUtils {
             return "{}";
         }
     }
-    
+
     public static <T> T parseObject(String jsonString, Class<T> clazz) {
         try {
             return JSON.parseObject(jsonString, clazz);
@@ -32,7 +34,7 @@ public final class JsonUtils {
             return null;
         }
     }
-    
+
     public static <T> List<T> parseArray(String jsonString, Class<T> clazz) {
         try {
             return JSON.parseArray(jsonString, clazz);
@@ -41,7 +43,7 @@ public final class JsonUtils {
             return null;
         }
     }
-    
+
     public static boolean isValidJson(String jsonString) {
         try {
             JSON.parse(jsonString);
