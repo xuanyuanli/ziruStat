@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * 缓存管理器，统一管理三级缓存策略
+ * 缓存管理器<br>
+ * 统一管理三级缓存策略，支持数据缓存、过期检查和依赖缓存<br>
+ * 提供通用的缓存代理方法，自动处理缓存有效性验证和数据获取
  * 
  * @author xuanyuanli
  */
@@ -62,7 +64,16 @@ public class CacheManager {
     }
 
     /**
-     * 支持位置缓存依赖检查的特殊缓存代理方法
+     * 支持依赖检查的缓存代理方法<br>
+     * 专门用于位置数据缓存，当依赖的基础数据文件更新时自动失效缓存
+     * 
+     * @param cacheFile 缓存文件路径
+     * @param dependentFile 依赖的文件路径
+     * @param dataSupplier 数据获取逻辑
+     * @param clazz 数据类型
+     * @param <T> 数据泛型类型
+     * @return 缓存或新获取的数据
+     * @throws Exception 缓存操作异常
      */
     public <T> List<T> getCachedDataWithDependency(
             String cacheFile,
@@ -102,7 +113,12 @@ public class CacheManager {
     }
 
     /**
-     * 检查依赖缓存是否有效（用于locations缓存）
+     * 检查依赖缓存是否有效<br>
+     * 主要用于locations缓存，验证缓存文件是否比依赖文件更新
+     * 
+     * @param cacheFile 缓存文件路径
+     * @param dependentFile 依赖文件路径
+     * @return 缓存有效返回true，否则返回false
      */
     private boolean isDependentCacheValid(String cacheFile, String dependentFile) {
         try {

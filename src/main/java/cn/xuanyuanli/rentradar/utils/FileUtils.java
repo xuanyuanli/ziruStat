@@ -11,8 +11,10 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * 文件操作工具类.
- * 提供常用的文件读写操作
+ * 文件操作工具类<br>
+ * 提供常用的文件读写、存在性检查、缓存管理等功能<br>
+ * 支持自动创建父目录、缓存过期检查和文件时间管理
+ *
  * @author xuanyuanli
  */
 public final class FileUtils {
@@ -21,10 +23,24 @@ public final class FileUtils {
         // 工具类不应被实例化
     }
 
+    /**
+     * 检查文件是否存在
+     * 
+     * @param filePath 文件路径
+     * @return 文件存在返回true，否则返回false
+     */
     public static boolean exists(String filePath) {
         return Files.exists(Paths.get(filePath));
     }
 
+    /**
+     * 将内容写入指定文件<br>
+     * 自动创建父目录和文件（如果不存在）
+     * 
+     * @param filePath 文件路径
+     * @param content 要写入的内容
+     * @throws IOException 文件操作异常
+     */
     public static void writeToFile(String filePath, String content) throws IOException {
         Path path = Paths.get(filePath);
 
@@ -85,6 +101,15 @@ public final class FileUtils {
         return Files.size(path);
     }
 
+    /**
+     * 检查缓存文件是否过期<br>
+     * 根据文件修改时间和指定的最大年龄判断缓存是否过期
+     * 
+     * @param filePath 文件路径
+     * @param maxAge 最大年龄时间间隔
+     * @return 缓存过期返回true，否则返回false
+     * @throws IOException 文件操作异常
+     */
     public static boolean isCacheExpired(String filePath, Duration maxAge) throws IOException {
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
@@ -109,6 +134,13 @@ public final class FileUtils {
         }
     }
 
+    /**
+     * 获取文件最后修改时间
+     * 
+     * @param filePath 文件路径
+     * @return 最后修改时间的毫秒时间戳
+     * @throws IOException 文件不存在或访问异常
+     */
     public static long getLastModifiedTime(String filePath) throws IOException {
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {

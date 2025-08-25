@@ -3,6 +3,10 @@ package cn.xuanyuanli.rentradar.model;
 import java.util.Objects;
 
 /**
+ * 地铁站数据模型<br>
+ * 封装地铁站的完整信息，包括站点名称、线路、URL、价格和地理位置<br>
+ * 提供数据有效性验证和便捷的显示方法
+ *
  * @author xuanyuanli
  */
 @SuppressWarnings("unused")
@@ -17,6 +21,14 @@ public class Subway {
     public Subway() {
     }
 
+    /**
+     * 构造函数<br>
+     * 创建包含基础信息的地铁站实例
+     *
+     * @param name 地铁站名称
+     * @param lineName 地铁线路名称
+     * @param url 自如网站对应的URL链接
+     */
     public Subway(String name, String lineName, String url) {
         this.name = name;
         this.lineName = lineName;
@@ -72,16 +84,31 @@ public class Subway {
         this.latitude = latitude;
     }
 
-    // 工具方法
+    /**
+     * 检查是否具有有效的地理位置信息
+     * 
+     * @return 经纬度都不为空返回true，否则返回false
+     */
     public boolean hasValidLocation() {
         return longitude != null && !longitude.trim().isEmpty()
                 && latitude != null && !latitude.trim().isEmpty();
     }
 
+    /**
+     * 检查是否具有有效的价格信息
+     * 
+     * @return 每平方米价格大于0返回true，否则返回false
+     */
     public boolean hasValidPrice() {
         return squareMeterOfPrice > 0;
     }
 
+    /**
+     * 获取用于显示的地铁站完整名称<br>
+     * 格式为"线路名 站点名"，如"1号线 天安门东"
+     * 
+     * @return 格式化的显示名称
+     */
     public String getDisplayName() {
         return lineName + " " + name;
     }

@@ -12,8 +12,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * 自如租房数据统计应用
- * 重构版本 - 职责清晰，易于维护
+ * 自如租房数据统计应用主类<br>
+ * 租房价格雷达(Rent Radar)的核心应用程序<br>
+ * 协调各个服务组件完成数据收集、处理和可视化的完整流程<br>
+ * 提供用户友好的控制台输出和结果统计
  *
  * @author xuanyuanli
  */
@@ -25,11 +27,20 @@ public class ZiruStatApplication {
         this.serviceContainer = new ServiceContainer();
     }
 
+    /**
+     * 应用程序入口点
+     * 
+     * @param args 命令行参数(当前版本未使用)
+     */
     public static void main(String[] args) {
         ZiruStatApplication app = new ZiruStatApplication();
         app.run();
     }
 
+    /**
+     * 执行主业务流程<br>
+     * 包括目录初始化、数据收集、可视化生成和结果统计
+     */
     private void run() {
         printWelcomeMessage();
 
@@ -72,6 +83,12 @@ public class ZiruStatApplication {
         System.out.println();
     }
 
+    /**
+     * 打印执行结果统计信息<br>
+     * 显示数据收集的完成度、平均价格和生成的文件列表
+     * 
+     * @param subways 收集到的地铁站数据列表
+     */
     private void printResultSummary(List<Subway> subways) {
         AppConfig config = AppConfig.getInstance();
 

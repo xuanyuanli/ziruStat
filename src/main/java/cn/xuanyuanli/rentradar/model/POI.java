@@ -4,6 +4,10 @@ import java.util.Objects;
 
 
 /**
+ * 地理位置兴趣点(Point Of Interest)数据模型<br>
+ * 封装从高德地图API获取的地理位置信息，包括经纬度坐标<br>
+ * 提供位置数据的有效性验证和基本操作方法
+ *
  * @author xuanyuanli
  */
 @SuppressWarnings("unused")
@@ -16,6 +20,13 @@ public class POI {
     public POI() {
     }
 
+    /**
+     * 构造函数<br>
+     * 使用经纬度坐标创建POI实例
+     *
+     * @param longitude 经度坐标
+     * @param latitude 纬度坐标
+     */
     public POI(String longitude, String latitude) {
         this.longitude = longitude;
         this.latitude = latitude;
@@ -54,7 +65,12 @@ public class POI {
         this.postcode = postcode;
     }
 
-    // 工具方法
+    /**
+     * 验证POI数据的有效性<br>
+     * 检查经纬度坐标是否都不为空且不为空白字符串
+     * 
+     * @return 数据有效返回true，否则返回false
+     */
     public boolean isValid() {
         return longitude != null && !longitude.trim().isEmpty()
                 && latitude != null && !latitude.trim().isEmpty();

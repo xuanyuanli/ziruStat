@@ -5,6 +5,11 @@ import java.io.InputStream;
 import java.util.Properties;
 
 /**
+ * 应用程序配置管理类<br>
+ * 采用单例模式提供全局配置访问，支持从properties文件和环境变量加载配置<br>
+ * 支持配置项占位符解析，提供各种类型的配置获取方法<br>
+ * 主要管理高德地图API、爬虫参数、缓存设置、文件路径等配置项
+ *
  * @author xuanyuanli
  */
 public class AppConfig {
@@ -16,6 +21,12 @@ public class AppConfig {
         loadProperties();
     }
 
+    /**
+     * 获取AppConfig单例实例<br>
+     * 使用双重检查锁定模式确保线程安全
+     * 
+     * @return AppConfig单例实例
+     */
     public static AppConfig getInstance() {
         if (instance == null) {
             synchronized (AppConfig.class) {

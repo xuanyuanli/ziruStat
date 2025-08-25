@@ -14,6 +14,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * 可视化服务类<br>
+ * 负责生成基于高德地图的HTML可视化页面<br>
+ * 将地铁站价格数据渲染为带有颜色标记的地图标点<br>
+ * 支持价格统计信息显示和自定义地图模板
+ *
  * @author xuanyuanli
  */
 public class VisualizationService {
@@ -24,6 +29,13 @@ public class VisualizationService {
         this.config = AppConfig.getInstance();
     }
 
+    /**
+     * 生成HTML可视化地图<br>
+     * 根据地铁站数据生成包含价格标记的高德地图HTML页面
+     * 
+     * @param subways 包含完整信息的地铁站列表
+     * @throws IOException 文件操作异常
+     */
     public void generateHtmlVisualization(List<Subway> subways) throws IOException {
         System.out.println("开始生成HTML可视化...");
 
@@ -95,6 +107,13 @@ public class VisualizationService {
         );
     }
 
+    /**
+     * 根据每平方米价格获取对应的地图标记颜色<br>
+     * 价格分级：绿色(<50) -> 蓝色(<80) -> 黄色(<120) -> 红色(>=120)
+     * 
+     * @param pricePerMeter 每平方米价格
+     * @return 颜色代码(1-4)
+     */
     private String getPriceColor(double pricePerMeter) {
         // 绿色
         if (pricePerMeter < 50) {
