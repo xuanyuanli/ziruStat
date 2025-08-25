@@ -71,7 +71,7 @@ public class ZiroomCrawler {
             return RetryUtils.executeWithRetry(
                     this::crawlSubwayStations,
                     config.getCrawlerMaxRetry(),
-                    config.getCrawlerDelay()
+                    1000
             );
         } catch (Exception e) {
             throw new CrawlerException("获取地铁站列表失败", e);
@@ -93,7 +93,7 @@ public class ZiroomCrawler {
             return RetryUtils.executeWithRetry(
                     () -> crawlPriceData(url),
                     config.getCrawlerMaxRetry(),
-                    config.getCrawlerDelay()
+                    1000
             );
         } catch (Exception e) {
             System.out.println("价格获取失败，URL: " + url + ", 错误: " + e.getMessage());

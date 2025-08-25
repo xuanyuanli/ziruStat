@@ -11,9 +11,10 @@ public class Test {
         ServiceContainer container = new ServiceContainer();
         SubwayDataService subwayDataService = new SubwayDataService(container.getZiroomCrawler(), container.getLocationService());
 
-        List<Subway> subwayStations = subwayDataService.getStationsData();
-        for (Subway subwayStation : subwayStations) {
-            System.out.println(subwayStation);
-        }
+        List<Subway> stationsData = subwayDataService.getStationsData();
+        subwayDataService.getLocationData(stationsData);
+        subwayDataService.getPriceData(stationsData);
+
+        container.shutdown();
     }
 }

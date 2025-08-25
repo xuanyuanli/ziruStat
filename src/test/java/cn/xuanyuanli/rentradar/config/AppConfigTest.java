@@ -4,8 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -45,12 +43,6 @@ class AppConfigTest {
     void testGetCrawlerMaxRetry_Default() {
         AppConfig config = AppConfig.getInstance();
         assertEquals(1, config.getCrawlerMaxRetry(), "根据配置文件，默认重试次数应该是1");
-    }
-
-    @Test
-    void testGetCrawlerDelay_Default() {
-        AppConfig config = AppConfig.getInstance();
-        assertEquals(2000, config.getCrawlerDelay(), "默认延迟应该是2000毫秒");
     }
 
     @Test
@@ -134,7 +126,6 @@ class AppConfigTest {
         
         // 测试正常的int配置读取
         assertTrue(config.getCrawlerMaxRetry() >= 1);
-        assertTrue(config.getCrawlerDelay() >= 0);
         assertTrue(config.getDefaultSquareMeter() > 0);
     }
 
@@ -161,7 +152,6 @@ class AppConfigTest {
         // 测试配置的逻辑一致性
         assertTrue(config.getMinReasonablePrice() < config.getMaxReasonablePrice(), 
                    "最低价格应该小于最高价格");
-        assertTrue(config.getCrawlerDelay() >= 0, "延迟时间不能为负数");
         assertTrue(config.getCrawlerMaxRetry() >= 1, "重试次数至少为1");
         assertTrue(config.getCacheExpireDays() > 0, "缓存过期天数必须大于0");
     }

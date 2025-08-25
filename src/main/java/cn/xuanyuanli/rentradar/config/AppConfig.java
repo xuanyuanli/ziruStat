@@ -66,15 +66,7 @@ public class AppConfig {
 
     // 爬虫配置
     public int getCrawlerMaxRetry() {
-        return getIntProperty("crawler.retry.maxAttempts", 3);
-    }
-
-    public int getCrawlerDelay() {
-        return getIntProperty("crawler.delay.betweenRequests", 2000);
-    }
-
-    public int getCrawlerTimeout() {
-        return getIntProperty("crawler.timeout.pageLoad", 30000);
+        return getIntProperty("crawler.retry.maxAttempts", 1);
     }
 
     // 数据配置

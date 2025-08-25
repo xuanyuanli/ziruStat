@@ -85,9 +85,7 @@ gaode.api.privateKey=your_private_key_here
 gaode.api.city=010
 
 # 爬虫行为配置
-crawler.retry.maxAttempts=3
-crawler.delay.betweenRequests=2000
-crawler.timeout.pageLoad=30000
+crawler.retry.maxAttempts=1
 
 # 分级缓存配置
 data.cache.enabled=true

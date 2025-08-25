@@ -118,11 +118,7 @@ public class SubwayDataService {
                 } else {
                     System.out.println("位置获取失败: " + station.getDisplayName());
                 }
-
-                // 添加延迟避免API限流
-                Thread.sleep(config.getCrawlerDelay());
-
-            } catch (LocationServiceException | InterruptedException e) {
+            } catch (LocationServiceException e) {
                 System.out.println("位置服务错误: " + station.getDisplayName() + ", " + e.getMessage());
             }
         }
@@ -156,10 +152,6 @@ public class SubwayDataService {
                 double avgPrice = crawler.getAveragePrice(station.getUrl());
                 station.setSquareMeterOfPrice(avgPrice);
                 System.out.println("获取价格: " + station.getDisplayName() + " = " + avgPrice + " 元/㎡");
-
-                // 添加延迟避免请求过于频繁
-                Thread.sleep(config.getCrawlerDelay());
-
             } catch (Exception e) {
                 System.out.println("获取价格失败: " + station.getDisplayName() + ", " + e.getMessage());
             }

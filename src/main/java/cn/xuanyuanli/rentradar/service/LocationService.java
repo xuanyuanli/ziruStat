@@ -1,10 +1,12 @@
 package cn.xuanyuanli.rentradar.service;
 
+import cn.xuanyuanli.core.util.Runtimes;
 import cn.xuanyuanli.rentradar.config.AppConfig;
 import cn.xuanyuanli.rentradar.exception.LocationServiceException;
 import cn.xuanyuanli.rentradar.model.POI;
 import cn.xuanyuanli.rentradar.utils.JsonUtils;
 import cn.xuanyuanli.rentradar.utils.RetryUtils;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -36,7 +38,7 @@ public class LocationService {
             return RetryUtils.executeWithRetry(
                     () -> fetchPOIFromApi(keyword),
                     config.getCrawlerMaxRetry(),
-                    config.getCrawlerDelay()
+                    1000
             );
         } catch (Exception e) {
             throw new LocationServiceException("获取POI信息失败: " + keyword, e);
@@ -60,17 +62,20 @@ public class LocationService {
             String url = buildRequestUrl(params);
             System.out.println("查询地理位置: " + keyword);
 
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .GET()
-                    .build();
+            HttpResponse<String> response;
+            try (HttpClient client = HttpClient.newHttpClient()) {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .GET()
+                        .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                // 休眠500毫秒，避免请求过快
+                Runtimes.sleep(500);
+            }
             String body = response.body();
 
             return parsePOIFromResponse(body);
-
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("API调用失败", e);
         }
