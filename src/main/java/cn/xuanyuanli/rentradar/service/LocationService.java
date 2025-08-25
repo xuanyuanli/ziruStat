@@ -5,10 +5,11 @@ import cn.xuanyuanli.rentradar.exception.LocationServiceException;
 import cn.xuanyuanli.rentradar.model.POI;
 import cn.xuanyuanli.rentradar.utils.JsonUtils;
 import cn.xuanyuanli.rentradar.utils.RetryUtils;
-import org.jsoup.Connection.Method;
-import org.jsoup.helper.HttpConnection;
-
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -59,15 +60,18 @@ public class LocationService {
             String url = buildRequestUrl(params);
             System.out.println("查询地理位置: " + keyword);
 
-            String body = HttpConnection.connect(url)
-                    .method(Method.GET)
-                    .ignoreContentType(true)
-                    .execute()
-                    .body();
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String body = response.body();
 
             return parsePOIFromResponse(body);
 
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException("API调用失败", e);
         }
     }

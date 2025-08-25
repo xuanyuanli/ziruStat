@@ -8,11 +8,8 @@ import cn.xuanyuanli.rentradar.exception.CrawlerException;
 import cn.xuanyuanli.rentradar.model.RentalPrice;
 import cn.xuanyuanli.rentradar.model.Subway;
 import cn.xuanyuanli.rentradar.utils.RetryUtils;
+import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +17,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * 自如网站爬虫服务
+ * <p>
+ * 负责从自如租房网站爬取地铁站信息和租房价格数据，
+ * 使用Playwright进行网页自动化操作和反爬虫规避。
+ * </p>
+ * 
+ * <p>主要功能：</p>
+ * <ul>
+ *   <li>获取北京地区所有地铁站列表和链接</li>
+ *   <li>爬取指定地铁站附近的租房价格数据</li>
+ *   <li>解析房源信息并计算平均每平米价格</li>
+ *   <li>支持重试机制和错误处理</li>
+ * </ul>
+ * 
  * @author xuanyuanli
+ * @since 1.0.0
  */
 @SuppressWarnings("CallToPrintStackTrace")
 public class ZiroomCrawler {
@@ -32,11 +44,26 @@ public class ZiroomCrawler {
     private final AppConfig config;
     private final PlaywrightManager playwrightManager;
 
+    /**
+     * 构造函数
+     * 
+     * @param playwrightManager Playwright管理器，用于执行网页自动化操作
+     */
     public ZiroomCrawler(PlaywrightManager playwrightManager) {
         this.config = AppConfig.getInstance();
         this.playwrightManager = playwrightManager;
     }
 
+    /**
+     * 获取所有地铁站信息
+     * <p>
+     * 从自如网站爬取北京地区所有地铁线路和站点信息，
+     * 包括站点名称、所属线路和对应的租房页面链接。
+     * </p>
+     * 
+     * @return 地铁站列表，包含站点名称、线路名称和页面链接
+     * @throws CrawlerException 当爬取过程中发生错误时抛出
+     */
     public List<Subway> getSubwayStations() throws CrawlerException {
         try {
             return RetryUtils.executeWithRetry(
@@ -49,6 +76,16 @@ public class ZiroomCrawler {
         }
     }
 
+    /**
+     * 获取指定地铁站附近的平均房租价格
+     * <p>
+     * 爬取指定URL页面中的房源信息，解析每套房源的租金和面积，
+     * 计算平均每平米价格。支持重试机制，失败时返回0.0。
+     * </p>
+     * 
+     * @param url 地铁站对应的租房页面URL
+     * @return 该地铁站附近房源的平均每平米价格，获取失败时返回0.0
+     */
     public double getAveragePrice(String url) {
         try {
             return RetryUtils.executeWithRetry(
@@ -62,6 +99,15 @@ public class ZiroomCrawler {
         }
     }
 
+    /**
+     * 爬取地铁站信息的核心实现方法
+     * <p>
+     * 通过Playwright访问自如网站首页，点击地铁选项展开地铁线路列表，
+     * 然后依次访问每条线路页面获取该线路下的所有站点信息。
+     * </p>
+     * 
+     * @return 爬取到的地铁站列表
+     */
     private List<Subway> crawlSubwayStations() {
         List<Subway> subways = new ArrayList<>();
 
@@ -77,18 +123,17 @@ public class ZiroomCrawler {
                 page.locator("span:has-text('地铁')").click();
                 page.waitForTimeout(2000);
 
-                String html = page.content();
-                Document document = Jsoup.parse(html);
-
                 // 3. 获取所有地铁线路链接（从dropdown中）
-                Elements subwayLines = document.select("a[href*='/z/s'][href*='-q']:not([href*='-t'])");
+                Locator subwayLines = page.locator("a[href*='/z/s'][href*='-q']:not([href*='-t'])");
+                int lineCount = subwayLines.count();
 
-                System.out.println("找到 " + subwayLines.size() + " 条地铁线路");
+                System.out.println("找到 " + lineCount + " 条地铁线路");
 
-                for (Element lineElement : subwayLines) {
+                for (int i = 0; i < lineCount; i++) {
                     try {
-                        String lineName = lineElement.text().trim();
-                        String lineHref = lineElement.attr("href");
+                        Locator lineElement = subwayLines.nth(i);
+                        String lineName = lineElement.textContent().trim();
+                        String lineHref = lineElement.getAttribute("href");
 
                         if (lineHref.isEmpty() || lineName.isEmpty()) {
                             continue;
@@ -126,6 +171,14 @@ public class ZiroomCrawler {
         return subways;
     }
 
+    /**
+     * 获取指定地铁线路下的所有站点信息
+     * 
+     * @param page 当前的Playwright页面对象
+     * @param lineHref 地铁线路的页面链接
+     * @param lineName 地铁线路名称
+     * @return 该线路下的所有地铁站列表
+     */
     private List<Subway> getStationsInLine(Page page, String lineHref, String lineName) {
         List<Subway> stations = new ArrayList<>();
 
@@ -134,17 +187,16 @@ public class ZiroomCrawler {
             page.waitForLoadState();
             page.waitForTimeout(2000);
 
-            String stationHtml = page.content();
-            Document stationDocument = Jsoup.parse(stationHtml);
-
             // 查找站点链接，从展开的地铁站列表中获取
-            Elements stationLinks = stationDocument.select("a[href*='/z/s'][href*='-t']");
+            Locator stationLinks = page.locator("a[href*='/z/s'][href*='-t']");
+            int stationCount = stationLinks.count();
 
-            System.out.println("线路 " + lineName + " 找到 " + stationLinks.size() + " 个站点");
+            System.out.println("线路 " + lineName + " 找到 " + stationCount + " 个站点");
 
-            for (Element stationElement : stationLinks) {
-                String stationName = stationElement.text().trim();
-                String stationHref = stationElement.attr("href");
+            for (int i = 0; i < stationCount; i++) {
+                Locator stationElement = stationLinks.nth(i);
+                String stationName = stationElement.textContent().trim();
+                String stationHref = stationElement.getAttribute("href");
 
                 if (stationHref.isEmpty() || stationName.isEmpty()) {
                     continue;
@@ -168,6 +220,16 @@ public class ZiroomCrawler {
         return stations;
     }
 
+    /**
+     * 爬取指定URL的房价数据
+     * <p>
+     * 访问地铁站对应的租房页面，查找页面中的房源列表项，
+     * 解析每个房源的价格和面积信息，计算平均每平米价格。
+     * </p>
+     * 
+     * @param url 要爬取的租房页面URL
+     * @return 该页面房源的平均每平米价格，没有有效数据时返回0.0
+     */
     private double crawlPriceData(String url) {
         List<Double> pricePerMeters = new ArrayList<>();
 
@@ -177,21 +239,21 @@ public class ZiroomCrawler {
                 page.waitForLoadState();
                 page.waitForTimeout(2000);
 
-                String html = page.content();
-                Document document = Jsoup.parse(html);
-
                 // 根据实际网站结构查找房源列表项
-                Elements houseItems = document.select("div[class*='item'], .list-item, .room-item");
+                Locator houseItems = page.locator("div[class*='item'], .list-item, .room-item");
+                int itemCount = houseItems.count();
 
-                if (houseItems.isEmpty()) {
+                if (itemCount == 0) {
                     // 尝试其他可能的选择器
-                    houseItems = document.select("generic:contains(居室)");
+                    houseItems = page.locator("*:has-text('居室')");
+                    itemCount = houseItems.count();
                 }
 
-                System.out.println("从页面找到 " + houseItems.size() + " 个房源项");
+                System.out.println("从页面找到 " + itemCount + " 个房源项");
 
-                for (Element houseItem : houseItems) {
+                for (int i = 0; i < itemCount; i++) {
                     try {
+                        Locator houseItem = houseItems.nth(i);
                         RentalPrice price = parseRentalInfo(houseItem);
                         if (price != null && isValidPrice(price)) {
                             pricePerMeters.add(price.getPricePerSquareMeter());
@@ -216,8 +278,18 @@ public class ZiroomCrawler {
         return pricePerMeters.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
     }
 
-    private RentalPrice parseRentalInfo(Element element) {
-        String text = element.text();
+    /**
+     * 解析单个房源元素的租金信息
+     * <p>
+     * 从房源元素的文本内容中提取租金价格和房间面积，
+     * 使用正则表达式匹配价格（￥数字/月）和面积（数字㎡）。
+     * </p>
+     * 
+     * @param element 包含房源信息的页面元素
+     * @return 解析成功的租金价格对象，失败时返回null
+     */
+    private RentalPrice parseRentalInfo(Locator element) {
+        String text = element.textContent();
 
         if (!text.contains("￥") && !text.contains("㎡")) {
             return null;
@@ -256,6 +328,16 @@ public class ZiroomCrawler {
         return null;
     }
 
+    /**
+     * 验证价格数据的合理性
+     * <p>
+     * 检查每平米价格是否在配置的合理范围内，
+     * 用于过滤异常数据和无效信息。
+     * </p>
+     * 
+     * @param price 要验证的租金价格对象
+     * @return 价格合理返回true，否则返回false
+     */
     private boolean isValidPrice(RentalPrice price) {
         double pricePerMeter = price.getPricePerSquareMeter();
         return pricePerMeter >= config.getMinReasonablePrice()
