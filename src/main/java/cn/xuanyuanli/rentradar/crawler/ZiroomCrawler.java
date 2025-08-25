@@ -1,5 +1,7 @@
 package cn.xuanyuanli.rentradar.crawler;
 
+import cn.xuanyuanli.core.util.Randoms;
+import cn.xuanyuanli.core.util.Runtimes;
 import cn.xuanyuanli.playwright.stealth.manager.PlaywrightBrowserManager;
 import cn.xuanyuanli.rentradar.config.AppConfig;
 import cn.xuanyuanli.rentradar.exception.CrawlerException;
@@ -39,6 +41,8 @@ import java.util.regex.Pattern;
 public class ZiroomCrawler {
 
 
+    public static final int SLEEP_TIME_MIN = 500;
+    public static final int SLEEP_TIME_MAX = 2000;
     private final AppConfig config;
     private final PlaywrightBrowserManager playwrightManager;
 
@@ -118,7 +122,6 @@ public class ZiroomCrawler {
 
                 // 2. 点击地铁选项展开地铁线路
                 page.locator("span.opt-name:has-text('地铁')").click();
-                page.waitForTimeout(2000);
 
                 // 3. 获取所有地铁线路链接（从dropdown中）
                 Locator subwayLines = page.locator("span.opt-name:has-text('地铁') + div").locator(".wrapper a.item");
@@ -135,7 +138,7 @@ public class ZiroomCrawler {
                         if (lineHref.isEmpty() || lineName.isEmpty()) {
                             continue;
                         }
-                        if (lineHref.startsWith("//")){
+                        if (lineHref.startsWith("//")) {
                             lineHref = "https:" + lineHref;
                         }
 
@@ -172,6 +175,7 @@ public class ZiroomCrawler {
 
         try {
             page.navigate(lineHref, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+            sleep();
 
             // 查找站点链接，从展开的地铁站列表中获取
             Locator stationLinks = page.locator(".grand-child-opt a.checkbox");
@@ -187,7 +191,7 @@ public class ZiroomCrawler {
                 if (stationHref.isEmpty() || stationName.isEmpty()) {
                     continue;
                 }
-                if (stationHref.startsWith("//")){
+                if (stationHref.startsWith("//")) {
                     stationHref = "https:" + stationHref;
                 }
 
@@ -206,6 +210,14 @@ public class ZiroomCrawler {
     }
 
     /**
+     * 休眠一段时间，模拟人眼操作
+     */
+    private static void sleep() {
+        // 休眠一段时间
+        Runtimes.sleep(Randoms.randomInt(SLEEP_TIME_MIN, SLEEP_TIME_MAX));
+    }
+
+    /**
      * 爬取指定URL的房价数据
      * <p>
      * 访问地铁站对应的租房页面，查找页面中的房源列表项，
@@ -221,6 +233,7 @@ public class ZiroomCrawler {
         playwrightManager.execute(page -> {
             try {
                 page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+                sleep();
 
                 // 精灵图前置检测
                 if (!performSpritePreflightCheck(page)) {
