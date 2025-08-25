@@ -68,7 +68,15 @@ class AppConfigTest {
     @Test
     void testGetCacheExpireDays_Default() {
         AppConfig config = AppConfig.getInstance();
-        assertEquals(7, config.getCacheExpireDays(), "默认缓存过期时间应该是7天");
+        assertEquals(30, config.getCacheExpireDays(), "默认缓存过期时间应该是30天");
+    }
+
+    @Test
+    void testTieredCacheExpireDays() {
+        AppConfig config = AppConfig.getInstance();
+        assertEquals(90, config.getStationsCacheExpireDays(), "地铁站基础信息缓存过期时间应该是90天");
+        assertEquals(-1, config.getLocationsCacheExpireDays(), "地理位置缓存依赖stations文件");
+        assertEquals(7, config.getPricesCacheExpireDays(), "价格缓存过期时间应该是7天");
     }
 
     @Test
@@ -107,6 +115,15 @@ class AppConfigTest {
         assertEquals("build/data/subwayLocation.json", config.getLocationJsonFile());
         assertEquals("build/output/show.html", config.getHtmlOutputFile());
         assertEquals("templates/map-template.html", config.getMapTemplate());
+    }
+
+    @Test
+    void testTieredCacheFilePaths() {
+        AppConfig config = AppConfig.getInstance();
+        
+        assertEquals("build/data/subway-stations.json", config.getStationsJsonFile());
+        assertEquals("build/data/subway-locations.json", config.getLocationsJsonFile());
+        assertEquals("build/data/subway-prices.json", config.getPricesJsonFile());
     }
 
     @Test

@@ -29,10 +29,12 @@
 - 服务标准化，数据质量稳定
 
 ### 实现流程
-1. **数据采集**: 爬取自如网站获取地铁站租房价格数据
-2. **地理编码**: 调用高德地图API获取地铁站经纬度坐标
-3. **数据可视化**: 在地图上标记各站点价格信息
-4. **缓存优化**: 本地缓存数据，避免重复请求
+1. **数据采集**: 三级数据获取流程
+   - 获取地铁站基础信息（站名、URL、线路）
+   - 获取地理位置数据（调用高德地图API）
+   - 获取租房价格数据（爬取自如网站）
+2. **数据可视化**: 在地图上标记各站点价格信息
+3. **智能缓存**: 分级缓存优化，避免重复请求
 
 ## 快速开始
 
@@ -50,8 +52,9 @@ mvn exec:java -Dexec.mainClass="cn.xuanyuanli.rentradar.ZiruStatApplication"
 ```
 build/
 ├── data/
-│   ├── subway.json              # 地铁站租金数据
-│   └── subwayLocation.json      # 地铁站地理位置数据  
+│   ├── subway-stations.json     # 地铁站基础信息
+│   ├── subway-locations.json    # 地铁站地理位置数据
+│   └── subway-prices.json       # 地铁站租金价格数据
 └── output/
     └── show.html               # 可视化地图页面
 ```
@@ -86,9 +89,14 @@ crawler.retry.maxAttempts=3
 crawler.delay.betweenRequests=2000
 crawler.timeout.pageLoad=30000
 
-# 缓存配置
+# 分级缓存配置
 data.cache.enabled=true
-data.cache.expireDays=7
+# 地铁站基础信息缓存过期时间（天数）
+data.cache.stations.expireDays=90
+# 地铁站位置数据缓存过期时间（天数）- 依赖stations文件，stations不变则永久有效
+data.cache.locations.expireDays=-1
+# 地铁站价格数据缓存过期时间（天数）
+data.cache.prices.expireDays=7
 
 # 输出目录配置
 data.output.baseDir=build
@@ -112,13 +120,19 @@ export CRAWLER_RETRY_MAXATTEMPTS="5"
 ```
 
 ### 重新运行程序
-如需重新抓取数据，删除缓存文件：
+如需重新抓取数据，可以选择删除对应的缓存文件：
+
 ```bash
+# 删除所有缓存（完全重新抓取）
 # Windows
 rmdir /s build\data
-
 # macOS/Linux  
 rm -rf build/data
+
+# 仅删除特定缓存文件
+rm build/data/subway-stations.json    # 重新获取地铁站基础信息
+rm build/data/subway-locations.json   # 重新获取位置数据  
+rm build/data/subway-prices.json      # 重新获取价格数据
 ```
 
 ## 项目特色
@@ -128,10 +142,11 @@ rm -rf build/data
 - 多层级配置优先级（环境变量 > 配置文件 > 默认值）
 - 占位符解析支持，配置文件可引用其他配置项
 
-### 🔄 智能缓存机制
-- 本地数据缓存，避免重复网络请求
-- 支持增量更新，提高运行效率
-- 可配置缓存过期时间（默认30天）
+### 🔄 智能分级缓存机制
+- **三级缓存策略**: stations(90天) → locations(依赖stations) → prices(7天)
+- **智能依赖管理**: 位置缓存依赖站点数据，自动失效机制
+- **缓存代理模式**: 统一的缓存管理，业务逻辑与缓存逻辑分离
+- **高效复用**: 避免重复网络请求，显著提升运行效率
 
 ### 🛡️ 反爬虫保护
 - 使用 playwright-stealth-pool 规避检测
@@ -144,10 +159,12 @@ rm -rf build/data
 - 详细的执行日志和统计信息
 - 价格合理性检查和过滤
 
-### 🎯 模块化架构
-- 清晰的服务分层设计
-- 依赖注入和服务容器
-- 易于扩展和维护
+### 🎯 现代化架构设计
+- **清晰的服务分层**: 配置层、服务层、工具层职责分离
+- **缓存代理模式**: CacheManager 统一管理缓存策略
+- **函数式编程**: 使用 Supplier 实现优雅的数据获取
+- **依赖注入容器**: ServiceContainer 管理组件生命周期
+- **易于测试**: Mock 友好的设计，完整的单元测试覆盖
 
 ## 注意事项
 
@@ -164,6 +181,7 @@ src/main/java/cn/xuanyuanli/rentradar/
 ├── config/AppConfig.java            # 配置管理
 ├── crawler/ZiroomCrawler.java        # 爬虫实现
 ├── service/                          # 服务层
+│   ├── CacheManager.java             # 缓存管理器（新增）
 │   ├── SubwayDataService.java        # 数据收集服务
 │   ├── LocationService.java          # 位置服务
 │   └── VisualizationService.java     # 可视化服务
@@ -171,14 +189,6 @@ src/main/java/cn/xuanyuanli/rentradar/
 ├── exception/                       # 异常定义
 └── utils/                          # 工具类
 ```
-
-## 开发计划
-
-- [ ] 支持更多城市
-- [ ] 添加房型过滤功能
-- [ ] 集成更多租房平台数据
-- [ ] 提供Web界面
-- [ ] 增加价格趋势分析
 
 ---
 

@@ -109,7 +109,25 @@ public final class FileUtils {
         }
     }
 
-    public static void deleteExpiredCache(String filePath, int daysToExpire) throws IOException {
-        deleteExpiredCache(filePath, Duration.ofDays(daysToExpire));
+    public static long getLastModifiedTime(String filePath) throws IOException {
+        Path path = Paths.get(filePath);
+        if (!Files.exists(path)) {
+            throw new IOException("文件不存在: " + filePath);
+        }
+        return Files.getLastModifiedTime(path).toMillis();
+    }
+
+    public static void delete(String filePath) throws IOException {
+        deleteFile(filePath);
+    }
+
+    public static void deleteExpiredCache(String filePath, int daysToExpire) {
+        try {
+            if (exists(filePath) && isCacheExpired(filePath, daysToExpire)) {
+                deleteFile(filePath);
+            }
+        } catch (IOException e) {
+            System.out.println("删除过期缓存失败: " + filePath + ", " + e.getMessage());
+        }
     }
 }

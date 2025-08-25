@@ -79,6 +79,19 @@ public class AppConfig {
         return getIntProperty("data.cache.expireDays", 30);
     }
 
+    // 分级缓存配置
+    public int getStationsCacheExpireDays() {
+        return getIntProperty("data.cache.stations.expireDays", 90);
+    }
+
+    public int getLocationsCacheExpireDays() {
+        return getIntProperty("data.cache.locations.expireDays", -1);
+    }
+
+    public int getPricesCacheExpireDays() {
+        return getIntProperty("data.cache.prices.expireDays", 7);
+    }
+
     public String getBaseDir() {
         return getProperty("data.output.baseDir", "build");
     }
@@ -91,6 +104,20 @@ public class AppConfig {
         return getProperty("data.output.outputDir", "build/output");
     }
 
+    // 分级缓存文件路径
+    public String getStationsJsonFile() {
+        return getProperty("data.output.stationsJsonFile", "build/data/subway-stations.json");
+    }
+
+    public String getLocationsJsonFile() {
+        return getProperty("data.output.locationsJsonFile", "build/data/subway-locations.json");
+    }
+
+    public String getPricesJsonFile() {
+        return getProperty("data.output.pricesJsonFile", "build/data/subway-prices.json");
+    }
+
+    // 兼容旧配置
     public String getPriceJsonFile() {
         return getProperty("data.output.priceJsonFile", "build/data/subway.json");
     }
