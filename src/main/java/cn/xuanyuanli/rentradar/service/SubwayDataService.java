@@ -10,6 +10,7 @@ import cn.xuanyuanli.rentradar.model.Subway;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 /**
  * 地铁数据服务类<br>
@@ -25,12 +26,14 @@ public class SubwayDataService {
     private final ZiroomCrawler crawler;
     private final LocationService locationService;
     private final CacheManager cacheManager;
+    private final ProgressCacheManager progressCacheManager;
 
     public SubwayDataService(ZiroomCrawler crawler, LocationService locationService) {
         this.config = AppConfig.getInstance();
         this.crawler = crawler;
         this.locationService = locationService;
         this.cacheManager = new CacheManager();
+        this.progressCacheManager = new ProgressCacheManager();
     }
 
     /**
@@ -131,7 +134,7 @@ public class SubwayDataService {
     }
 
     /**
-     * 第三步：获取地铁站价格数据
+     * 第三步：获取地铁站价格数据（支持断点续传）
      */
     public List<Subway> getPriceData(List<Subway> stationsWithLocation) throws Exception {
         System.out.println("开始获取价格数据...");
@@ -139,13 +142,58 @@ public class SubwayDataService {
         return cacheManager.getCachedData(
                 config.getPricesJsonFile(),
                 config.getPricesCacheExpireDays(),
-                () -> enrichWithPrices(stationsWithLocation),
+                () -> enrichWithPricesWithResume(stationsWithLocation),
                 Subway.class
         );
     }
 
     /**
-     * 为地铁站数据添加价格信息
+     * 为地铁站数据添加价格信息（支持断点续传）
+     */
+    private List<Subway> enrichWithPricesWithResume(List<Subway> stations) {
+        // 加载进度缓存
+        ProgressCacheManager.PriceProgress progress = progressCacheManager.loadProgress();
+        
+        // 如果有缓存数据且未过期，先从缓存恢复
+        List<Subway> result = new ArrayList<>();
+        if (!progress.getCompletedStations().isEmpty()) {
+            result = progressCacheManager.convertToSubwayList(progress, stations);
+            System.out.println(progressCacheManager.getProgressInfo(progress, stations.size()));
+        }
+        
+        // 处理剩余未完成的站点
+        int processedCount = 0;
+        for (Subway station : stations) {
+            if (!progressCacheManager.isStationCompleted(station, progress)) {
+                try {
+                    double avgPrice = crawler.getAveragePrice(station.getUrl());
+                    station.setSquareMeterOfPrice(avgPrice);
+                    
+                    // 立即保存进度
+                    progressCacheManager.saveStationProgress(station, avgPrice, progress);
+                    
+                    // 添加到结果列表（如果价格有效）
+                    if (station.hasValidPrice()) {
+                        result.add(station);
+                    }
+                    
+                    processedCount++;
+                    System.out.println("获取到价格 (" + processedCount + "/" + (stations.size() - progress.getCompletedStations().size()) + "): " + 
+                                     station.getDisplayName() + " = " + Numbers.moneyFormat(avgPrice) + " 元/㎡");
+                    
+                } catch (Exception e) {
+                    System.err.println("获取价格失败: " + station.getDisplayName() + ", 错误: " + e.getMessage());
+                    // 继续处理下一个站点，不中断整个流程
+                }
+            }
+        }
+        
+        System.out.println("价格数据获取完成，共 " + result.size() + " 个站点有效");
+        return result;
+    }
+    
+    /**
+     * 为地铁站数据添加价格信息（原始方法，不支持断点续传）
      */
     private List<Subway> enrichWithPrices(List<Subway> stations) {
         for (Subway station : stations) {
@@ -158,5 +206,12 @@ public class SubwayDataService {
         return stations.stream()
                 .filter(Subway::hasValidPrice)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 清除价格获取进度缓存
+     */
+    public void clearPriceProgress() {
+        progressCacheManager.clearProgress();
     }
 }

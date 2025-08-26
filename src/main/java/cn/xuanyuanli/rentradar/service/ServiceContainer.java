@@ -23,7 +23,7 @@ public class ServiceContainer {
      * 配置为非无头模式，禁用隐身模式，启用图片渲染和GPU加速
      */
     public static final PlaywrightConfig PLAYWRIGHT_CONFIG = new PlaywrightConfig()
-            .setHeadless(false)
+            .setHeadless(true)
             .setStealthMode(StealthMode.DISABLED)
             .setDisableImageRender(false).setDisableAutomationControlled(true).setDisableGpu(false);
 
@@ -78,7 +78,7 @@ public class ServiceContainer {
      */
     private void initializeServices() {
         // 初始化Playwright管理器
-        playwrightManager = new PlaywrightBrowserManager(PLAYWRIGHT_CONFIG, 1);
+        playwrightManager = new PlaywrightBrowserManager(PLAYWRIGHT_CONFIG, 2);
 
         // 创建服务实例
         LocationService locationService = new LocationService();
