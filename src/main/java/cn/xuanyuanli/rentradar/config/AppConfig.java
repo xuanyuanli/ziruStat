@@ -146,6 +146,10 @@ public class AppConfig {
         return getDoubleProperty("price.analysis.maxReasonablePrice", 1000.0);
     }
 
+    public double getMaxAreaLimit() {
+        return getDoubleProperty("price.analysis.maxAreaLimit", 200.0);
+    }
+
     // 工具方法
     private String getProperty(String key, String defaultValue) {
         // 先从环境变量中获取，将点号转换为下划线并转为大写

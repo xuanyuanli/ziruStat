@@ -163,51 +163,29 @@ public class SubwayDataService {
         
         // 处理剩余未完成的站点
         int processedCount = 0;
+        int total = stations.size() - progress.getCompletedStations().size();
         for (Subway station : stations) {
             if (!progressCacheManager.isStationCompleted(station, progress)) {
-                try {
-                    double avgPrice = crawler.getAveragePrice(station.getUrl());
-                    station.setSquareMeterOfPrice(avgPrice);
-                    
+                double avgPrice = crawler.getAveragePrice(station.getUrl());
+                station.setSquareMeterOfPrice(avgPrice);
+
+                // 添加到结果列表（如果价格有效）
+                if (station.hasValidPrice()) {
                     // 立即保存进度
                     progressCacheManager.saveStationProgress(station, avgPrice, progress);
-                    
-                    // 添加到结果列表（如果价格有效）
-                    if (station.hasValidPrice()) {
-                        result.add(station);
-                    }
-                    
-                    processedCount++;
-                    System.out.println("获取到价格 (" + processedCount + "/" + (stations.size() - progress.getCompletedStations().size()) + "): " + 
-                                     station.getDisplayName() + " = " + Numbers.moneyFormat(avgPrice) + " 元/㎡");
-                    
-                } catch (Exception e) {
-                    System.err.println("获取价格失败: " + station.getDisplayName() + ", 错误: " + e.getMessage());
-                    // 继续处理下一个站点，不中断整个流程
+                    result.add(station);
                 }
+
+                processedCount++;
+                System.out.println("获取到价格 (" + processedCount + "/" + total + "): " +
+                        station.getDisplayName() + " = " + Numbers.moneyFormat(avgPrice) + " 元/㎡");
             }
         }
         
         System.out.println("价格数据获取完成，共 " + result.size() + " 个站点有效");
         return result;
     }
-    
-    /**
-     * 为地铁站数据添加价格信息（原始方法，不支持断点续传）
-     */
-    private List<Subway> enrichWithPrices(List<Subway> stations) {
-        for (Subway station : stations) {
-            double avgPrice = crawler.getAveragePrice(station.getUrl());
-            station.setSquareMeterOfPrice(avgPrice);
-            System.out.println("获取到价格: " + station.getDisplayName() + " = " + Numbers.moneyFormat(avgPrice) + " 元/㎡");
-        }
 
-        // 过滤掉无效数据
-        return stations.stream()
-                .filter(Subway::hasValidPrice)
-                .collect(Collectors.toList());
-    }
-    
     /**
      * 清除价格获取进度缓存
      */

@@ -13,6 +13,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitUntilState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -208,6 +209,8 @@ public class ZiroomCrawler {
             Locator houseItems = page.locator(".Z_list-box div.item");
             int itemCount = houseItems.count();
 
+            System.out.println("从 " + url + " 获取到 " + itemCount + " 个有效房源价格");
+
             for (int i = 0; i < itemCount; i++) {
                 Locator houseItem = houseItems.nth(i);
                 RentalPrice price = null;
@@ -224,15 +227,23 @@ public class ZiroomCrawler {
                     pricePerMeters.add(price.getPricePerSquareMeter());
                 }
             }
-
-            System.out.println("从 " + url + " 获取到 " + pricePerMeters.size() + " 个有效房源价格");
         });
 
         if (pricePerMeters.isEmpty()) {
             return 0.0;
         }
 
-        return pricePerMeters.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        // 异常值检测：使用四分位数间距(IQR)方法过滤异常值
+        List<Double> filteredPrices = removeOutliers(pricePerMeters);
+        
+        if (filteredPrices.isEmpty()) {
+            System.out.println("所有价格数据都被识别为异常值，使用原始数据计算平均值");
+            filteredPrices = pricePerMeters;
+        } else if (filteredPrices.size() < pricePerMeters.size()) {
+            System.out.println("检测到 " + (pricePerMeters.size() - filteredPrices.size()) + " 个异常价格数据，已过滤");
+        }
+
+        return filteredPrices.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
     }
 
     /**
@@ -254,6 +265,11 @@ public class ZiroomCrawler {
         double area = extractArea(elementText);
         if (area <= 0) {
             throw new RuntimeException("无法提取 " + element.page().url() + " 面积信息: " + elementText);
+        }
+        
+        // 检查面积是否超过限制
+        if (area > config.getMaxAreaLimit()) {
+            return null;
         }
 
         // 获取价格精灵图元素的样式信息
@@ -289,6 +305,7 @@ public class ZiroomCrawler {
 
                 if (PriceSpriteDecoder.isValidPrice(priceStr)) {
                     double price = Double.parseDouble(priceStr);
+                    System.out.println("\t面积： " + area + " ，价格: " + price);
                     return new RentalPrice(price, area);
                 }
             }
@@ -331,5 +348,72 @@ public class ZiroomCrawler {
         double pricePerMeter = price.getPricePerSquareMeter();
         return pricePerMeter >= config.getMinReasonablePrice()
                 && pricePerMeter <= config.getMaxReasonablePrice();
+    }
+
+    /**
+     * 使用四分位数间距(IQR)方法去除异常值
+     * <p>
+     * 计算价格数据的第一四分位数(Q1)和第三四分位数(Q3)，
+     * 然后计算IQR = Q3 - Q1，异常值定义为：
+     * 小于 Q1 - 1.5 * IQR 或大于 Q3 + 1.5 * IQR 的值
+     * </p>
+     *
+     * @param prices 原始价格列表
+     * @return 过滤异常值后的价格列表
+     */
+    private List<Double> removeOutliers(List<Double> prices) {
+        if (prices.size() < 4) {
+            return new ArrayList<>(prices);
+        }
+
+        List<Double> sortedPrices = new ArrayList<>(prices);
+        Collections.sort(sortedPrices);
+
+        double q1 = getQuartile(sortedPrices, 0.25);
+        double q3 = getQuartile(sortedPrices, 0.75);
+        double iqr = q3 - q1;
+
+        double lowerBound = q1 - 1.5 * iqr;
+        double upperBound = q3 + 1.5 * iqr;
+
+        List<Double> filteredPrices = new ArrayList<>();
+        List<Double> outliers = new ArrayList<>();
+        
+        for (Double price : prices) {
+            if (price >= lowerBound && price <= upperBound) {
+                filteredPrices.add(price);
+            } else {
+                outliers.add(price);
+            }
+        }
+
+        // 输出异常值信息
+        if (!outliers.isEmpty()) {
+            System.out.println("检测到异常价格值: " + outliers + "，边界范围: [" + 
+                String.format("%.2f", lowerBound) + ", " + String.format("%.2f", upperBound) + "]");
+        }
+
+        return filteredPrices;
+    }
+
+    /**
+     * 计算指定分位数的值
+     *
+     * @param sortedData 已排序的数据列表
+     * @param percentile 分位数 (0.0 到 1.0)
+     * @return 分位数对应的值
+     */
+    private double getQuartile(List<Double> sortedData, double percentile) {
+        int n = sortedData.size();
+        double index = percentile * (n - 1);
+        int lowerIndex = (int) Math.floor(index);
+        int upperIndex = (int) Math.ceil(index);
+
+        if (lowerIndex == upperIndex) {
+            return sortedData.get(lowerIndex);
+        }
+
+        double weight = index - lowerIndex;
+        return sortedData.get(lowerIndex) * (1 - weight) + sortedData.get(upperIndex) * weight;
     }
 }

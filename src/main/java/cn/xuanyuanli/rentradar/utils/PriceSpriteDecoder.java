@@ -84,6 +84,7 @@ public class PriceSpriteDecoder {
         v1Mapping.put("-64.2px", "0");    // 第4个数字：0
         v1Mapping.put("-85.6px", "4");    // 第5个数字：4
         v1Mapping.put("-107.0px", "1");   // 第6个数字：1
+        v1Mapping.put("-107px", "1");   // 第6个数字：1
         v1Mapping.put("-128.4px", "5");   // 第7个数字：5
         v1Mapping.put("-149.8px", "9");   // 第8个数字：9
         v1Mapping.put("-171.2px", "2");   // 第9个数字：2
@@ -106,6 +107,7 @@ public class PriceSpriteDecoder {
         v2Mapping.put("-64.2px", "8");    // 第4个数字：8
         v2Mapping.put("-85.6px", "1");    // 第5个数字：1
         v2Mapping.put("-107.0px", "2");   // 第6个数字：2
+        v2Mapping.put("-107px", "2");   // 第6个数字：2
         v2Mapping.put("-128.4px", "3");   // 第7个数字：3
         v2Mapping.put("-149.8px", "6");   // 第8个数字：6
         v2Mapping.put("-171.2px", "0");   // 第9个数字：0
@@ -150,6 +152,7 @@ public class PriceSpriteDecoder {
         newMapping.put("-64.2px", "0");   // 第4个数字：0  
         newMapping.put("-85.6px", "8");   // 第5个数字：8
         newMapping.put("-107.0px", "6");  // 第6个数字：6
+        newMapping.put("-107px", "6");  // 第6个数字：6
         newMapping.put("-128.4px", "7");  // 第7个数字：7
         newMapping.put("-149.8px", "5");  // 第8个数字：5
         newMapping.put("-171.2px", "4");  // 第9个数字：4
@@ -301,56 +304,6 @@ public class PriceSpriteDecoder {
         }
 
         return null;
-    }
-
-    /**
-     * 检测未知精灵图并提供指导
-     *
-     * @param priceSpanData 价格span数据
-     * @return 检测结果和建议
-     */
-    public static SpriteDetectionResult detectUnknownSprite(List<Map<String, Object>> priceSpanData) {
-        if (priceSpanData == null || priceSpanData.isEmpty()) {
-            return new SpriteDetectionResult(false, null, "无价格数据");
-        }
-
-        for (Map<String, Object> spanData : priceSpanData) {
-            SpriteImageType identifiedType = identifySpriteType(List.of(spanData));
-
-            if (identifiedType == null) {
-                return new SpriteDetectionResult(false, null, null);
-            }
-
-        }
-
-        return new SpriteDetectionResult(true, null, null);
-    }
-
-    /**
-     * 精灵图检测结果
-     */
-    public static class SpriteDetectionResult {
-        private final boolean isKnownSprite;
-        private final SpriteImageType spriteType;
-        private final String message;
-
-        public SpriteDetectionResult(boolean isKnownSprite, SpriteImageType spriteType, String message) {
-            this.isKnownSprite = isKnownSprite;
-            this.spriteType = spriteType;
-            this.message = message;
-        }
-
-        public boolean isKnownSprite() {
-            return isKnownSprite;
-        }
-
-        public SpriteImageType getSpriteType() {
-            return spriteType;
-        }
-
-        public String getMessage() {
-            return message;
-        }
     }
 
     /**
