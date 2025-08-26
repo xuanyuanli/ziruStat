@@ -210,7 +210,16 @@ public class ZiroomCrawler {
 
             for (int i = 0; i < itemCount; i++) {
                 Locator houseItem = houseItems.nth(i);
-                RentalPrice price = parsePriceFromSprites(houseItem);
+                RentalPrice price = null;
+                try {
+                    price = RetryUtils.executeWithRetry(() -> parsePriceFromSprites(houseItem), 2, 100);
+                } catch (Exception e) {
+                    if (e.getMessage().contains("Browser operation failed") || e.getMessage().contains("Page operation failed")) {
+                        System.out.println("页面操作失败，跳过此元素的价格获取：" + houseItem.textContent());
+                    } else {
+                        throw new RuntimeException(e);
+                    }
+                }
                 if (price != null && isValidPrice(price)) {
                     pricePerMeters.add(price.getPricePerSquareMeter());
                 }
