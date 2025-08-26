@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **核心技术栈**
 - **后端框架**: 基于 xuanyuanli/jujube-parent 3.1.2
 - **网页爬虫**: playwright-stealth-pool + jsoup
+- **OCR识别**: Tesseract（tess4j）
 - **数据处理**: fastjson2
 - **地图API**: 高德地图
 - **测试框架**: JUnit Jupiter
@@ -46,6 +47,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **服务层** (`service/`)
 - `CacheManager.java` - 缓存管理器，统一管理数据缓存策略
+- `SimpleOCRService.java` - OCR识别服务，智能降级处理机制
 - `SubwayDataService.java` - 地铁数据收集和处理服务
 - `LocationService.java` - 地理位置服务，调用高德地图API
 - `VisualizationService.java` - 数据可视化服务，生成HTML地图
@@ -75,6 +77,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 使用 playwright-stealth-pool 规避检测
 - 智能请求频率控制
 - 支持代理和 User-Agent 轮换
+
+**🔍 智能OCR识别**
+- **Tesseract OCR引擎**: 基于tess4j的数字识别能力
+- **智能降级处理**: OCR不可用时自动回退，保证系统稳定性  
+- **多路径Tessdata**: 自动检测多种可能的训练数据路径
+- **图像预处理**: 3倍放大、灰度化、对比度增强提升识别准确率
+- **结果验证**: 数字过滤、长度限制（≤8位）、价格合理性检查（500-99999）
+- **双重保障**: 精灵图映射失败时，OCR作为降级方案保证价格识别
 
 **🎯 现代化架构设计**
 - **清晰的服务分层**: 配置层、服务层、工具层职责分离

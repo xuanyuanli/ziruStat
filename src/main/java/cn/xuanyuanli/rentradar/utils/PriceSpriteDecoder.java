@@ -1,8 +1,11 @@
 package cn.xuanyuanli.rentradar.utils;
 
+import cn.xuanyuanli.rentradar.service.SimpleOCRService;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -156,6 +159,35 @@ public class PriceSpriteDecoder {
     }
 
     /**
+     * 解码精灵图价格（支持OCR降级）
+     * <p>
+     * 优先使用精灵图映射解码，失败时降级到OCR识别
+     * </p>
+     *
+     * @param priceSpanData 价格span元素的样式数据列表，包含style属性
+     * @param screenshot    价格区域截图，用于OCR降级
+     * @return 解码后的价格字符串，解码失败时返回null
+     */
+    public static String decodePrice(List<Map<String, Object>> priceSpanData, Supplier<byte[]> screenshot) {
+        // 1. 尝试精灵图映射解码
+        String result = decodePriceBySpriteMapping(priceSpanData);
+        if (isValidPrice(result)) {
+            return result;
+        }
+
+        // 2. 降级到OCR识别
+        if (screenshot != null) {
+            String ocrResult = SimpleOCRService.recognizeDigits(screenshot.get());
+            if (isValidPrice(ocrResult)) {
+                System.out.println("OCR识别价格成功: " + ocrResult);
+                return ocrResult;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * 解码精灵图价格（自动识别精灵图类型）
      * <p>
      * 从包含价格数字的span元素列表中提取background-position值，
@@ -166,13 +198,17 @@ public class PriceSpriteDecoder {
      * @return 解码后的价格字符串，解码失败时返回null
      */
     public static String decodePrice(List<Map<String, Object>> priceSpanData) {
+        return decodePrice(priceSpanData, null);
+    }
+
+    private static String decodePriceBySpriteMapping(List<Map<String, Object>> priceSpanData) {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
             return null;
         }
 
         // 1. 识别精灵图类型
         SpriteImageType spriteType = identifySpriteType(priceSpanData);
-        
+
         // 2. 使用对应的映射表解码
         Map<String, String> mapping;
         if (spriteType != null) {

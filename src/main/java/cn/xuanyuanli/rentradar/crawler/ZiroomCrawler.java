@@ -276,7 +276,7 @@ public class ZiroomCrawler {
             List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
 
             if (!spanDataList.isEmpty()) {
-                String priceStr = PriceSpriteDecoder.decodePrice(spanDataList);
+                String priceStr = PriceSpriteDecoder.decodePrice(spanDataList, priceItem::screenshot);
 
                 if (PriceSpriteDecoder.isValidPrice(priceStr)) {
                     double price = Double.parseDouble(priceStr);
