@@ -25,10 +25,11 @@ class SpriteImageAnalyzerTest {
     private static final String[] SPRITE_FILES = {
         "sprite_v1_a9da4f199beb8d74bffa9500762fd7b7.png",
         "sprite_v2_f4c1f82540f8d287aa53492a44f5819b.png", 
-        "sprite_red_img_pricenumber_list_red.png"
+        "sprite_red_img_pricenumber_list_red.png",
+        "sprite_new_c4b718a0002eb143ea3484b373071495.png"
     };
     
-    private static final double[] SPRITE_INTERVALS = {21.4, 21.4, 20.0}; // 各版本的像素间隔
+    private static final double[] SPRITE_INTERVALS = {21.4, 21.4, 20.0, 21.4}; // 各版本的像素间隔
     
     private static String spritesResourcePath;
     
@@ -124,6 +125,33 @@ class SpriteImageAnalyzerTest {
             );
             
             validateSpriteMapping(result, expectedV2Mapping, "V2");
+        });
+    }
+
+    @Test
+    @DisplayName("分析新版精灵图数字排列")
+    void testAnalyzeNewSpriteLayout() {
+        String newFile = spritesResourcePath + SPRITE_FILES[3];
+        
+        assertDoesNotThrow(() -> {
+            BufferedImage image = ImageIO.read(new File(newFile));
+            SpriteAnalysisResult result = analyzeSpriteStructure(image, 21.4, SPRITE_FILES[3]);
+            
+            // 验证新版映射 (实际数字顺序：9310867542)
+            Map<String, String> expectedNewMapping = Map.of(
+                "0px", "9",
+                "-21.4px", "3", 
+                "-42.8px", "1",
+                "-64.2px", "0",
+                "-85.6px", "8",
+                "-107.0px", "6",
+                "-128.4px", "7", 
+                "-149.8px", "5",
+                "-171.2px", "4",
+                "-192.6px", "2"
+            );
+            
+            validateSpriteMapping(result, expectedNewMapping, "NEW");
         });
     }
 
@@ -291,7 +319,7 @@ class SpriteImageAnalyzerTest {
     private String inferDigitFromPosition(String position, double interval, String spriteFileName) {
         // 基于已知的映射关系推断
         if (Math.abs(interval - 21.4) < 0.1) {
-            // 检查文件名来区分V1和V2版本
+            // 检查文件名来区分不同版本
             if (spriteFileName != null && spriteFileName.contains("f4c1f82540f8d287aa53492a44f5819b")) {
                 // V2版本 (21.4px间隔) - 数字顺序：4978123605
                 Map<String, String> knownV2Mapping = Map.of(
@@ -299,6 +327,13 @@ class SpriteImageAnalyzerTest {
                     "-107.0px", "2", "-128.4px", "3", "-149.8px", "6", "-171.2px", "0", "-192.6px", "5"
                 );
                 return knownV2Mapping.getOrDefault(position, "?");
+            } else if (spriteFileName != null && spriteFileName.contains("c4b718a0002eb143ea3484b373071495")) {
+                // 新版本 (21.4px间隔) - 数字顺序：9310867542
+                Map<String, String> knownNewMapping = Map.of(
+                    "0px", "9", "-21.4px", "3", "-42.8px", "1", "-64.2px", "0", "-85.6px", "8",
+                    "-107.0px", "6", "-128.4px", "7", "-149.8px", "5", "-171.2px", "4", "-192.6px", "2"
+                );
+                return knownNewMapping.getOrDefault(position, "?");
             } else {
                 // V1版本 (21.4px间隔) - 数字顺序：8670415923
                 Map<String, String> knownV1Mapping = Map.of(

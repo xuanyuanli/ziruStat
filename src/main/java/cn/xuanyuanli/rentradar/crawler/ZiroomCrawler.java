@@ -1,7 +1,5 @@
 package cn.xuanyuanli.rentradar.crawler;
 
-import cn.xuanyuanli.core.util.Randoms;
-import cn.xuanyuanli.core.util.Runtimes;
 import cn.xuanyuanli.playwright.stealth.manager.PlaywrightBrowserManager;
 import cn.xuanyuanli.rentradar.config.AppConfig;
 import cn.xuanyuanli.rentradar.exception.CrawlerException;
@@ -40,9 +38,6 @@ import java.util.regex.Pattern;
 @SuppressWarnings("CallToPrintStackTrace")
 public class ZiroomCrawler {
 
-
-    public static final int SLEEP_TIME_MIN = 500;
-    public static final int SLEEP_TIME_MAX = 2000;
     private final AppConfig config;
     private final PlaywrightBrowserManager playwrightManager;
 
@@ -79,20 +74,6 @@ public class ZiroomCrawler {
     }
 
     /**
-     * 获取指定地铁站附近的平均房租价格
-     * <p>
-     * 爬取指定URL页面中的房源信息，解析每套房源的租金和面积，
-     * 计算平均每平米价格。支持重试机制，失败时返回0.0。
-     * </p>
-     *
-     * @param url 地铁站对应的租房页面URL
-     * @return 该地铁站附近房源的平均每平米价格，获取失败时返回0.0
-     */
-    public double getAveragePrice(String url) {
-        return crawlPriceData(url);
-    }
-
-    /**
      * 爬取地铁站信息的核心实现方法
      * <p>
      * 通过Playwright访问自如网站首页，点击地铁选项展开地铁线路列表，
@@ -110,6 +91,7 @@ public class ZiroomCrawler {
 
                 // 1. 访问租房首页
                 page.navigate("https://www.ziroom.com/z/", new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+                page.waitForSelector("span.opt-name");
 
                 // 2. 点击地铁选项展开地铁线路
                 page.locator("span.opt-name:has-text('地铁')").click();
@@ -166,7 +148,7 @@ public class ZiroomCrawler {
 
         try {
             page.navigate(lineHref, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
-            sleep();
+            page.waitForSelector(".grand-child-opt");
 
             // 查找站点链接，从展开的地铁站列表中获取
             Locator stationLinks = page.locator(".grand-child-opt a.checkbox");
@@ -201,14 +183,6 @@ public class ZiroomCrawler {
     }
 
     /**
-     * 休眠一段时间，模拟人眼操作
-     */
-    private static void sleep() {
-        // 休眠一段时间
-        Runtimes.sleep(Randoms.randomInt(SLEEP_TIME_MIN, SLEEP_TIME_MAX));
-    }
-
-    /**
      * 爬取指定URL的房价数据
      * <p>
      * 访问地铁站对应的租房页面，查找页面中的房源列表项，
@@ -218,12 +192,12 @@ public class ZiroomCrawler {
      * @param url 要爬取的租房页面URL
      * @return 该页面房源的平均每平米价格，没有有效数据时返回0.0
      */
-    private double crawlPriceData(String url) {
+    public double getAveragePrice(String url) {
         List<Double> pricePerMeters = new ArrayList<>();
 
         playwrightManager.execute(page -> {
             page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
-            sleep();
+            page.waitForSelector(".Z_list-box");
 
             // 精灵图前置检测
             if (!performSpritePreflightCheck(page)) {
@@ -240,8 +214,7 @@ public class ZiroomCrawler {
             for (int i = 0; i < itemCount; i++) {
                 try {
                     Locator houseItem = houseItems.nth(i);
-                    Locator priceItem = houseItem.locator(".price-content .price");
-                    RentalPrice price = parsePriceFromSprites(priceItem);
+                    RentalPrice price = parsePriceFromSprites(houseItem);
                     if (price != null && isValidPrice(price)) {
                         pricePerMeters.add(price.getPricePerSquareMeter());
                     }
@@ -280,7 +253,8 @@ public class ZiroomCrawler {
         }
 
         // 获取价格精灵图元素的样式信息
-        Object result = element.evaluate("""
+        Locator priceItem = element.locator(".price-content .price");
+        Object result = priceItem.evaluate("""
                 (element) => {
                 const priceSpans = element.querySelectorAll('span.num');
                 const spanData = [];

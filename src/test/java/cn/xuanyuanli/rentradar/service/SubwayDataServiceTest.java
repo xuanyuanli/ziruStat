@@ -2,27 +2,20 @@ package cn.xuanyuanli.rentradar.service;
 
 import cn.xuanyuanli.rentradar.config.AppConfig;
 import cn.xuanyuanli.rentradar.crawler.ZiroomCrawler;
-import cn.xuanyuanli.rentradar.exception.CrawlerException;
-import cn.xuanyuanli.rentradar.exception.LocationServiceException;
 import cn.xuanyuanli.rentradar.model.POI;
 import cn.xuanyuanli.rentradar.model.Subway;
-import cn.xuanyuanli.rentradar.utils.FileUtils;
-import cn.xuanyuanli.rentradar.utils.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Answers.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class SubwayDataServiceTest {
@@ -61,7 +54,7 @@ class SubwayDataServiceTest {
     }
 
     @Test
-    void testSubwayValidation() throws Exception {
+    void testSubwayValidation() {
         // 测试Subway对象的验证逻辑
         Subway validSubway = createSubway("国贸", "1号线", 85.5);
         validSubway.setLongitude("116.434");

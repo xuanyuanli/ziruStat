@@ -36,7 +36,8 @@ public class PriceSpriteDecoder {
     public enum SpriteImageType {
         SPRITE_V1("a9da4f199beb8d74bffa9500762fd7b7", "第一版精灵图"),
         SPRITE_V2("f4c1f82540f8d287aa53492a44f5819b", "第二版精灵图"),
-        SPRITE_RED("img_pricenumber_list_red", "红色版精灵图");
+        SPRITE_RED("img_pricenumber_list_red", "红色版精灵图"),
+        SPRITE_NEW("c4b718a0002eb143ea3484b373071495", "新版精灵图");
 
         private final String identifier;
         private final String description;
@@ -60,6 +61,7 @@ public class PriceSpriteDecoder {
         initializeSpriteV1Mapping();
         initializeSpriteV2Mapping();
         initializeSpriteRedMapping();
+        initializeSpriteNewMapping();
 
         // 默认使用第一版精灵图映射作为后备
         POSITION_TO_DIGIT.putAll(SPRITE_MAPPINGS.get(SpriteImageType.SPRITE_V1.getIdentifier()));
@@ -129,6 +131,28 @@ public class PriceSpriteDecoder {
         redMapping.put("-180px", "7");    // 第10个数字：7
 
         SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_RED.getIdentifier(), redMapping);
+    }
+
+    /**
+     * 初始化新版精灵图映射 (c4b718a0002eb143ea3484b373071495.png)
+     * 数字排列顺序：9、3、1、0、8、6、7、5、4、2
+     */
+    private static void initializeSpriteNewMapping() {
+        Map<String, String> newMapping = new HashMap<>();
+
+        // 21.4px间隔布局，数字排列顺序：9310867542
+        newMapping.put("0px", "9");       // 第1个数字：9
+        newMapping.put("-21.4px", "3");   // 第2个数字：3
+        newMapping.put("-42.8px", "1");   // 第3个数字：1
+        newMapping.put("-64.2px", "0");   // 第4个数字：0  
+        newMapping.put("-85.6px", "8");   // 第5个数字：8
+        newMapping.put("-107.0px", "6");  // 第6个数字：6
+        newMapping.put("-128.4px", "7");  // 第7个数字：7
+        newMapping.put("-149.8px", "5");  // 第8个数字：5
+        newMapping.put("-171.2px", "4");  // 第9个数字：4
+        newMapping.put("-192.6px", "2");  // 第10个数字：2
+
+        SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_NEW.getIdentifier(), newMapping);
     }
 
     /**

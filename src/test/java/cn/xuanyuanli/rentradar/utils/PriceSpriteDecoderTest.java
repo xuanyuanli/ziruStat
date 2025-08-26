@@ -51,6 +51,21 @@ class PriceSpriteDecoderTest {
         }
 
         @Test
+        @DisplayName("新版精灵图价格解码 - 正常流程")
+        void testDecodePriceWithSpriteNew() {
+            // 构造新版精灵图数据 - 价格9310 (基于实际序列9310867542)
+            List<Map<String, Object>> priceSpanData = Arrays.asList(
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: 0px center;"),        // 9
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -21.4px center;"),   // 3
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -42.8px center;"),   // 1
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -64.2px center;")    // 0
+            );
+
+            String result = PriceSpriteDecoder.decodePrice(priceSpanData);
+            assertEquals("9310", result);
+        }
+
+        @Test
         @DisplayName("红色版本精灵图价格解码 - 正常流程")
         void testDecodePriceWithSpriteRed() {
             // 构造红色版精灵图数据 - 价格8652 (基于实际序列8652039147)
@@ -122,6 +137,27 @@ class PriceSpriteDecoderTest {
         }
 
         @Test
+        @DisplayName("新版精灵图完整数字序列测试")
+        void testNewSpriteCompleteDigitSequence() {
+            // 验证新版完整数字序列：9310867542
+            List<Map<String, Object>> priceSpanData = Arrays.asList(
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: 0px center;"),        // 9
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -21.4px center;"),   // 3  
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -42.8px center;"),   // 1
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -64.2px center;"),   // 0
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -85.6px center;"),   // 8
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -107.0px center;"),  // 6
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -128.4px center;"),  // 7
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -149.8px center;"),  // 5
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -171.2px center;"),  // 4
+                createSpanData("background-image: url('c4b718a0002eb143ea3484b373071495.png'); background-position: -192.6px center;")   // 2
+            );
+
+            String result = PriceSpriteDecoder.decodePrice(priceSpanData);
+            assertEquals("9310867542", result);
+        }
+
+        @Test
         @DisplayName("红色版本精灵图完整数字序列测试")
         void testRedSpriteCompleteDigitSequence() {
             // 验证红色版本完整数字序列：8652039147
@@ -181,6 +217,17 @@ class PriceSpriteDecoderTest {
 
             PriceSpriteDecoder.SpriteImageType result = PriceSpriteDecoder.identifySpriteType(priceSpanData);
             assertEquals(PriceSpriteDecoder.SpriteImageType.SPRITE_V2, result);
+        }
+
+        @Test
+        @DisplayName("识别新版精灵图")
+        void testIdentifySpriteNew() {
+            List<Map<String, Object>> priceSpanData = Arrays.asList(
+                createSpanData("background-image: url('static8.ziroom.com/phoenix/pc/images/price/new-list/c4b718a0002eb143ea3484b373071495.png'); background-position: -21.4px center;")
+            );
+
+            PriceSpriteDecoder.SpriteImageType result = PriceSpriteDecoder.identifySpriteType(priceSpanData);
+            assertEquals(PriceSpriteDecoder.SpriteImageType.SPRITE_NEW, result);
         }
 
         @Test
@@ -356,12 +403,21 @@ class PriceSpriteDecoderTest {
             }
             assertEquals(10, redDigits.size(), "红色版本应包含所有数字0-9");
             
+            // 新版数字序列：9310867542
+            String newSequence = "9310867542";
+            Set<Character> newDigits = new HashSet<>();
+            for (char c : newSequence.toCharArray()) {
+                newDigits.add(c);
+            }
+            assertEquals(10, newDigits.size(), "新版应包含所有数字0-9");
+            
             // 验证所有版本都包含数字0-9
             for (int i = 0; i <= 9; i++) {
                 char digit = String.valueOf(i).charAt(0);
                 assertTrue(v1Digits.contains(digit), "V1版本缺少数字: " + i);
                 assertTrue(v2Digits.contains(digit), "V2版本缺少数字: " + i);
                 assertTrue(redDigits.contains(digit), "红色版本缺少数字: " + i);
+                assertTrue(newDigits.contains(digit), "新版缺少数字: " + i);
             }
         }
 
@@ -382,6 +438,11 @@ class PriceSpriteDecoderTest {
                         PriceSpriteDecoder.SpriteImageType.SPRITE_RED.getIdentifier());
             assertEquals("红色版精灵图", 
                         PriceSpriteDecoder.SpriteImageType.SPRITE_RED.getDescription());
+            
+            assertEquals("c4b718a0002eb143ea3484b373071495", 
+                        PriceSpriteDecoder.SpriteImageType.SPRITE_NEW.getIdentifier());
+            assertEquals("新版精灵图", 
+                        PriceSpriteDecoder.SpriteImageType.SPRITE_NEW.getDescription());
         }
     }
 
