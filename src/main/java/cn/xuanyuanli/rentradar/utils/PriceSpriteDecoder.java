@@ -89,45 +89,44 @@ public class PriceSpriteDecoder {
 
     /**
      * 初始化第二版精灵图映射 (f4c1f82540f8d287aa53492a44f5819b.png)
-     * 需要通过实际观测确定数字排列
+     * 数字排列顺序：4、9、7、8、1、2、3、6、0、5
      */
     private static void initializeSpriteV2Mapping() {
         Map<String, String> v2Mapping = new HashMap<>();
 
-        // 基于观测到的位置数据：-107px, -192.6px, -128.4px, -171.2px, -85.6px, -0px
-        // 需要进一步分析确定准确映射
-        v2Mapping.put("0px", "8");        // 推测
-        v2Mapping.put("-21.4px", "6");    // 推测
-        v2Mapping.put("-42.8px", "7");    // 推测  
-        v2Mapping.put("-64.2px", "0");    // 推测
-        v2Mapping.put("-85.6px", "4");    // 实际观测
-        v2Mapping.put("-107.0px", "1");   // 实际观测（近似-107px）
-        v2Mapping.put("-128.4px", "5");   // 实际观测
-        v2Mapping.put("-149.8px", "9");   // 推测
-        v2Mapping.put("-171.2px", "2");   // 实际观测
-        v2Mapping.put("-192.6px", "3");   // 实际观测
+        // 21.4px间隔布局，数字排列顺序：4978123605
+        v2Mapping.put("0px", "4");        // 第1个数字：4
+        v2Mapping.put("-21.4px", "9");    // 第2个数字：9
+        v2Mapping.put("-42.8px", "7");    // 第3个数字：7  
+        v2Mapping.put("-64.2px", "8");    // 第4个数字：8
+        v2Mapping.put("-85.6px", "1");    // 第5个数字：1
+        v2Mapping.put("-107.0px", "2");   // 第6个数字：2
+        v2Mapping.put("-128.4px", "3");   // 第7个数字：3
+        v2Mapping.put("-149.8px", "6");   // 第8个数字：6
+        v2Mapping.put("-171.2px", "0");   // 第9个数字：0
+        v2Mapping.put("-192.6px", "5");   // 第10个数字：5
 
         SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_V2.getIdentifier(), v2Mapping);
     }
 
     /**
      * 初始化红色版精灵图映射 (img_pricenumber_list_red.png)
-     * 使用20px间隔布局
+     * 数字排列顺序：8、6、5、2、0、3、9、1、4、7
      */
     private static void initializeSpriteRedMapping() {
         Map<String, String> redMapping = new HashMap<>();
 
-        // 基于观测到的位置数据：-60px, -140px, -20px, -160px (20px间隔)
-        redMapping.put("0px", "0");       // 推测
-        redMapping.put("-20px", "1");     // 实际观测
-        redMapping.put("-40px", "2");     // 推测
-        redMapping.put("-60px", "3");     // 实际观测  
-        redMapping.put("-80px", "4");     // 推测
-        redMapping.put("-100px", "5");    // 推测
-        redMapping.put("-120px", "6");    // 推测
-        redMapping.put("-140px", "7");    // 实际观测
-        redMapping.put("-160px", "8");    // 实际观测
-        redMapping.put("-180px", "9");    // 推测
+        // 20px间隔布局，数字排列顺序：8652039147
+        redMapping.put("0px", "8");       // 第1个数字：8
+        redMapping.put("-20px", "6");     // 第2个数字：6
+        redMapping.put("-40px", "5");     // 第3个数字：5
+        redMapping.put("-60px", "2");     // 第4个数字：2  
+        redMapping.put("-80px", "0");     // 第5个数字：0
+        redMapping.put("-100px", "3");    // 第6个数字：3
+        redMapping.put("-120px", "9");    // 第7个数字：9
+        redMapping.put("-140px", "1");    // 第8个数字：1
+        redMapping.put("-160px", "4");    // 第9个数字：4
+        redMapping.put("-180px", "7");    // 第10个数字：7
 
         SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_RED.getIdentifier(), redMapping);
     }
@@ -149,12 +148,16 @@ public class PriceSpriteDecoder {
 
         // 1. 识别精灵图类型
         SpriteImageType spriteType = identifySpriteType(priceSpanData);
-        if (spriteType == null) {
-            return null;
-        }
-
+        
         // 2. 使用对应的映射表解码
-        Map<String, String> mapping = SPRITE_MAPPINGS.get(spriteType.getIdentifier());
+        Map<String, String> mapping;
+        if (spriteType != null) {
+            // 使用识别到的精灵图映射
+            mapping = SPRITE_MAPPINGS.get(spriteType.getIdentifier());
+        } else {
+            // 无法识别精灵图类型时，使用默认映射表（V1版本）作为后备
+            mapping = POSITION_TO_DIGIT;
+        }
         return decodePriceWithMapping(priceSpanData, mapping);
     }
 
