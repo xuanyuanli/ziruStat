@@ -36,7 +36,7 @@ public class SubwayDataService {
      * 收集所有地铁站数据<br>
      * 按照三个步骤依次执行：获取地铁站基础信息 -> 获取地理位置数据 -> 获取价格数据<br>
      * 利用分层缓存策略避免重复请求，提高数据收集效率
-     * 
+     *
      * @return 包含完整信息的地铁站列表
      * @throws Exception 数据收集过程中的各种异常
      */
@@ -60,13 +60,13 @@ public class SubwayDataService {
      * 获取地铁站基础信息<br>
      * 第一步：从自如网站爬取地铁站基础信息（站名、URL、线路信息）<br>
      * 使用长期缓存策略（90天），避免频繁重复爬取基础数据
-     * 
+     *
      * @return 地铁站基础信息列表
      * @throws Exception 爬虫异常或缓存异常
      */
     public List<Subway> getStationsData() throws Exception {
         System.out.println("开始获取地铁站基础信息...");
-        
+
         return cacheManager.getCachedData(
                 config.getStationsJsonFile(),
                 config.getStationsCacheExpireDays(),
@@ -85,14 +85,14 @@ public class SubwayDataService {
      * 获取地铁站地理位置数据<br>
      * 第二步：调用高德地图API获取每个地铁站的经纬度坐标<br>
      * 依赖于地铁站基础数据，使用依赖缓存策略
-     * 
+     *
      * @param stations 包含基础信息的地铁站列表
      * @return 包含地理位置信息的地铁站列表
      * @throws Exception 位置服务异常或缓存异常
      */
     public List<Subway> getLocationData(List<Subway> stations) throws Exception {
         System.out.println("开始获取地理位置数据...");
-        
+
         return cacheManager.getCachedDataWithDependency(
                 config.getLocationsJsonFile(),
                 config.getStationsJsonFile(),
@@ -134,7 +134,7 @@ public class SubwayDataService {
      */
     public List<Subway> getPriceData(List<Subway> stationsWithLocation) throws Exception {
         System.out.println("开始获取价格数据...");
-        
+
         return cacheManager.getCachedData(
                 config.getPricesJsonFile(),
                 config.getPricesCacheExpireDays(),
@@ -148,13 +148,12 @@ public class SubwayDataService {
      */
     private List<Subway> enrichWithPrices(List<Subway> stations) {
         for (Subway station : stations) {
-            try {
-                double avgPrice = crawler.getAveragePrice(station.getUrl());
-                station.setSquareMeterOfPrice(avgPrice);
-                System.out.println("获取价格: " + station.getDisplayName() + " = " + avgPrice + " 元/㎡");
-            } catch (Exception e) {
-                System.out.println("获取价格失败: " + station.getDisplayName() + ", " + e.getMessage());
+            double avgPrice = crawler.getAveragePrice(station.getUrl());
+            if (avgPrice <= 0) {
+                return null;
             }
+            station.setSquareMeterOfPrice(avgPrice);
+            System.out.println("获取价格: " + station.getDisplayName() + " = " + avgPrice + " 元/㎡");
         }
 
         // 过滤掉无效数据

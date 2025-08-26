@@ -13,65 +13,65 @@ import java.util.regex.Pattern;
  * 通过分析background-position来解码价格数字。
  * 支持多种精灵图文件的识别和解码。
  * </p>
- * 
+ *
  * @author xuanyuanli
  * @since 1.0.0
  */
 public class PriceSpriteDecoder {
-    
+
     /**
      * 位置到数字的映射表
      * 根据CSS精灵图的background-position值映射对应的数字
      */
     private static final Map<String, String> POSITION_TO_DIGIT = new HashMap<>();
-    
+
     /**
      * 精灵图映射表：精灵图文件名/哈希 -> 位置映射配置
      */
     private static final Map<String, Map<String, String>> SPRITE_MAPPINGS = new HashMap<>();
-    
+
     /**
      * 已知的精灵图文件标识符
      */
     public enum SpriteImageType {
         SPRITE_V1("a9da4f199beb8d74bffa9500762fd7b7", "第一版精灵图"),
-        SPRITE_V2("f4c1f82540f8d287aa53492a44f5819b", "第二版精灵图"), 
+        SPRITE_V2("f4c1f82540f8d287aa53492a44f5819b", "第二版精灵图"),
         SPRITE_RED("img_pricenumber_list_red", "红色版精灵图");
-        
+
         private final String identifier;
         private final String description;
-        
+
         SpriteImageType(String identifier, String description) {
             this.identifier = identifier;
             this.description = description;
         }
-        
+
         public String getIdentifier() {
             return identifier;
         }
-        
+
         public String getDescription() {
             return description;
         }
     }
-    
+
     static {
         // 初始化各种精灵图的映射关系
         initializeSpriteV1Mapping();
         initializeSpriteV2Mapping();
         initializeSpriteRedMapping();
-        
+
         // 默认使用第一版精灵图映射作为后备
         POSITION_TO_DIGIT.putAll(SPRITE_MAPPINGS.get(SpriteImageType.SPRITE_V1.getIdentifier()));
     }
-    
+
     /**
      * 初始化第一版精灵图映射 (a9da4f199beb8d74bffa9500762fd7b7.png)
      * 数字排列顺序：8、6、7、0、4、1、5、9、2、3
      */
     private static void initializeSpriteV1Mapping() {
         Map<String, String> v1Mapping = new HashMap<>();
-        
+
         // 21.4px间隔布局
         v1Mapping.put("0px", "8");        // 第1个数字：8
         v1Mapping.put("-21.4px", "6");    // 第2个数字：6  
@@ -83,17 +83,17 @@ public class PriceSpriteDecoder {
         v1Mapping.put("-149.8px", "9");   // 第8个数字：9
         v1Mapping.put("-171.2px", "2");   // 第9个数字：2
         v1Mapping.put("-192.6px", "3");   // 第10个数字：3
-        
+
         SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_V1.getIdentifier(), v1Mapping);
     }
-    
+
     /**
-     * 初始化第二版精灵图映射 (f4c1f82540f8d287aa53492a44f5819b.png) 
+     * 初始化第二版精灵图映射 (f4c1f82540f8d287aa53492a44f5819b.png)
      * 需要通过实际观测确定数字排列
      */
     private static void initializeSpriteV2Mapping() {
         Map<String, String> v2Mapping = new HashMap<>();
-        
+
         // 基于观测到的位置数据：-107px, -192.6px, -128.4px, -171.2px, -85.6px, -0px
         // 需要进一步分析确定准确映射
         v2Mapping.put("0px", "8");        // 推测
@@ -106,17 +106,17 @@ public class PriceSpriteDecoder {
         v2Mapping.put("-149.8px", "9");   // 推测
         v2Mapping.put("-171.2px", "2");   // 实际观测
         v2Mapping.put("-192.6px", "3");   // 实际观测
-        
+
         SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_V2.getIdentifier(), v2Mapping);
     }
-    
+
     /**
      * 初始化红色版精灵图映射 (img_pricenumber_list_red.png)
      * 使用20px间隔布局
      */
     private static void initializeSpriteRedMapping() {
         Map<String, String> redMapping = new HashMap<>();
-        
+
         // 基于观测到的位置数据：-60px, -140px, -20px, -160px (20px间隔)
         redMapping.put("0px", "0");       // 推测
         redMapping.put("-20px", "1");     // 实际观测
@@ -128,17 +128,17 @@ public class PriceSpriteDecoder {
         redMapping.put("-140px", "7");    // 实际观测
         redMapping.put("-160px", "8");    // 实际观测
         redMapping.put("-180px", "9");    // 推测
-        
+
         SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_RED.getIdentifier(), redMapping);
     }
-    
+
     /**
      * 解码精灵图价格（自动识别精灵图类型）
      * <p>
      * 从包含价格数字的span元素列表中提取background-position值，
      * 自动识别精灵图类型并使用对应的映射表解码价格。
      * </p>
-     * 
+     *
      * @param priceSpanData 价格span元素的样式数据列表，包含style属性
      * @return 解码后的价格字符串，解码失败时返回null
      */
@@ -146,39 +146,22 @@ public class PriceSpriteDecoder {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
             return null;
         }
-        
+
         // 1. 识别精灵图类型
         SpriteImageType spriteType = identifySpriteType(priceSpanData);
         if (spriteType == null) {
-            System.out.println("警告：无法识别精灵图类型，使用默认映射");
-            return decodePriceWithMapping(priceSpanData, POSITION_TO_DIGIT);
+            return null;
         }
-        
+
         // 2. 使用对应的映射表解码
         Map<String, String> mapping = SPRITE_MAPPINGS.get(spriteType.getIdentifier());
-        String result = decodePriceWithMapping(priceSpanData, mapping);
-        
-        if (result == null) {
-            System.out.println("使用 " + spriteType.getDescription() + " 解码失败，尝试其他映射");
-            // 尝试其他映射表
-            for (Map<String, String> fallbackMapping : SPRITE_MAPPINGS.values()) {
-                if (fallbackMapping != mapping) {
-                    result = decodePriceWithMapping(priceSpanData, fallbackMapping);
-                    if (result != null) {
-                        System.out.println("使用备用映射解码成功：" + result);
-                        break;
-                    }
-                }
-            }
-        }
-        
-        return result;
+        return decodePriceWithMapping(priceSpanData, mapping);
     }
-    
+
     /**
      * 识别精灵图类型
      * 通过分析背景图片URL来确定使用哪种精灵图
-     * 
+     *
      * @param priceSpanData 价格span数据
      * @return 精灵图类型，如果无法识别返回null
      */
@@ -186,13 +169,13 @@ public class PriceSpriteDecoder {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
             return null;
         }
-        
+
         for (Map<String, Object> spanData : priceSpanData) {
             String style = (String) spanData.get("style");
             if (style == null) {
                 continue;
             }
-            
+
             // 提取背景图片URL
             String backgroundImage = extractBackgroundImage(style);
             if (backgroundImage != null) {
@@ -204,26 +187,26 @@ public class PriceSpriteDecoder {
                 }
             }
         }
-        
+
         return null; // 无法识别
     }
-    
+
     /**
      * 使用指定映射表解码价格
-     * 
+     *
      * @param priceSpanData 价格span数据
-     * @param mapping 位置到数字的映射表
+     * @param mapping       位置到数字的映射表
      * @return 解码后的价格，失败时返回null
      */
     private static String decodePriceWithMapping(List<Map<String, Object>> priceSpanData, Map<String, String> mapping) {
         StringBuilder price = new StringBuilder();
-        
+
         for (Map<String, Object> spanData : priceSpanData) {
             String style = (String) spanData.get("style");
             if (style == null) {
                 continue;
             }
-            
+
             String position = extractBackgroundPosition(style);
             if (position != null) {
                 String digit = mapping.get(position);
@@ -236,32 +219,32 @@ public class PriceSpriteDecoder {
                 }
             }
         }
-        
-        return price.length() > 0 ? price.toString() : null;
+
+        return !price.isEmpty() ? price.toString() : null;
     }
-    
+
     /**
      * 从CSS样式中提取背景图片URL
-     * 
+     *
      * @param style CSS样式字符串
      * @return 背景图片URL，未找到时返回null
      */
     private static String extractBackgroundImage(String style) {
         Pattern pattern = Pattern.compile("background-image:\\s*url\\(([^)]+)\\)");
         Matcher matcher = pattern.matcher(style);
-        
+
         if (matcher.find()) {
             String url = matcher.group(1);
             // 清理引号
             return url.replaceAll("[\"']", "");
         }
-        
+
         return null;
     }
-    
+
     /**
      * 检测未知精灵图并提供指导
-     * 
+     *
      * @param priceSpanData 价格span数据
      * @return 检测结果和建议
      */
@@ -269,34 +252,19 @@ public class PriceSpriteDecoder {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
             return new SpriteDetectionResult(false, null, "无价格数据");
         }
-        
-        SpriteImageType identifiedType = identifySpriteType(priceSpanData);
-        
-        if (identifiedType != null) {
-            return new SpriteDetectionResult(true, identifiedType, "识别到已知精灵图: " + identifiedType.getDescription());
-        }
-        
-        // 收集未知精灵图信息
-        StringBuilder unknownInfo = new StringBuilder("发现未知精灵图:\n");
-        
+
         for (Map<String, Object> spanData : priceSpanData) {
-            String style = (String) spanData.get("style");
-            if (style != null) {
-                String backgroundImage = extractBackgroundImage(style);
-                String position = extractBackgroundPosition(style);
-                
-                if (backgroundImage != null) {
-                    unknownInfo.append("  背景图片: ").append(backgroundImage).append("\n");
-                    unknownInfo.append("  位置: ").append(position).append("\n");
-                }
+            SpriteImageType identifiedType = identifySpriteType(List.of(spanData));
+
+            if (identifiedType == null) {
+                return new SpriteDetectionResult(false, null, null);
             }
+
         }
-        
-        unknownInfo.append("\n请联系开发者添加此精灵图的映射配置。");
-        
-        return new SpriteDetectionResult(false, null, unknownInfo.toString());
+
+        return new SpriteDetectionResult(true, null, null);
     }
-    
+
     /**
      * 精灵图检测结果
      */
@@ -304,33 +272,33 @@ public class PriceSpriteDecoder {
         private final boolean isKnownSprite;
         private final SpriteImageType spriteType;
         private final String message;
-        
+
         public SpriteDetectionResult(boolean isKnownSprite, SpriteImageType spriteType, String message) {
             this.isKnownSprite = isKnownSprite;
             this.spriteType = spriteType;
             this.message = message;
         }
-        
+
         public boolean isKnownSprite() {
             return isKnownSprite;
         }
-        
+
         public SpriteImageType getSpriteType() {
             return spriteType;
         }
-        
+
         public String getMessage() {
             return message;
         }
     }
-    
+
     /**
      * 从CSS样式字符串中提取background-position的X坐标值
      * <p>
      * 解析类似 "background-position: -149.8px center;" 的样式字符串，
      * 提取其中的X坐标值用于数字映射。
      * </p>
-     * 
+     *
      * @param style CSS样式字符串
      * @return 提取到的X坐标值，未找到时返回null
      */
@@ -338,20 +306,20 @@ public class PriceSpriteDecoder {
         // 匹配 background-position: -149.8px center 或 background-position: -149.8px 0px
         Pattern pattern = Pattern.compile("background-position:\\s*(-?\\d+(?:\\.\\d+)?px)");
         Matcher matcher = pattern.matcher(style);
-        
+
         if (matcher.find()) {
             return matcher.group(1);
         }
-        
+
         return null;
     }
-    
+
     /**
      * 验证解码后的价格是否合理
      * <p>
      * 检查价格范围是否在合理区间内，用于过滤解码错误的数据。
      * </p>
-     * 
+     *
      * @param priceStr 价格字符串
      * @return 价格合理返回true，否则返回false
      */
@@ -359,7 +327,7 @@ public class PriceSpriteDecoder {
         if (priceStr == null || priceStr.isEmpty()) {
             return false;
         }
-        
+
         try {
             double price = Double.parseDouble(priceStr);
             // 北京租房合理价格范围：500-50000元/月
@@ -368,23 +336,23 @@ public class PriceSpriteDecoder {
             return false;
         }
     }
-    
+
     /**
      * 更新位置映射表
      * <p>
      * 运行时动态添加新的位置映射关系，用于适应网站的更新。
      * </p>
-     * 
+     *
      * @param position background-position值
-     * @param digit 对应的数字
+     * @param digit    对应的数字
      */
     public static void updateMapping(String position, String digit) {
         POSITION_TO_DIGIT.put(position, digit);
     }
-    
+
     /**
      * 获取当前的位置映射表（用于调试）
-     * 
+     *
      * @return 位置到数字的映射表副本
      */
     public static Map<String, String> getMappingTable() {

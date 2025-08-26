@@ -236,47 +236,6 @@ class PriceSpriteDecoderTest {
     }
 
     @Nested
-    @DisplayName("未知精灵图检测功能测试")
-    class UnknownSpriteDetectionTests {
-
-        @Test
-        @DisplayName("检测已知精灵图")
-        void testDetectKnownSprite() {
-            List<Map<String, Object>> priceSpanData = Arrays.asList(
-                createSpanData("background-image: url('a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -107.0px center;")
-            );
-
-            PriceSpriteDecoder.SpriteDetectionResult result = PriceSpriteDecoder.detectUnknownSprite(priceSpanData);
-            assertTrue(result.isKnownSprite());
-            assertEquals(PriceSpriteDecoder.SpriteImageType.SPRITE_V1, result.getSpriteType());
-            assertTrue(result.getMessage().contains("识别到已知精灵图"));
-        }
-
-        @Test
-        @DisplayName("检测未知精灵图")
-        void testDetectUnknownSprite() {
-            List<Map<String, Object>> priceSpanData = Arrays.asList(
-                createSpanData("background-image: url('unknown_sprite.png'); background-position: -30px center;")
-            );
-
-            PriceSpriteDecoder.SpriteDetectionResult result = PriceSpriteDecoder.detectUnknownSprite(priceSpanData);
-            assertFalse(result.isKnownSprite());
-            assertNull(result.getSpriteType());
-            assertTrue(result.getMessage().contains("发现未知精灵图"));
-            assertTrue(result.getMessage().contains("unknown_sprite.png"));
-        }
-
-        @Test
-        @DisplayName("检测空数据")
-        void testDetectWithEmptyData() {
-            PriceSpriteDecoder.SpriteDetectionResult result = PriceSpriteDecoder.detectUnknownSprite(Collections.emptyList());
-            assertFalse(result.isKnownSprite());
-            assertNull(result.getSpriteType());
-            assertEquals("无价格数据", result.getMessage());
-        }
-    }
-
-    @Nested
     @DisplayName("工具方法测试")
     class UtilityMethodTests {
 
@@ -330,33 +289,6 @@ class PriceSpriteDecoderTest {
     @Nested
     @DisplayName("复杂场景集成测试")
     class ComplexScenarioTests {
-
-        @Test
-        @DisplayName("完整价格解码流程测试")
-        void testCompleteDecodingWorkflow() {
-            // 模拟真实的房租价格：2580元
-            List<Map<String, Object>> priceSpanData = Arrays.asList(
-                createSpanData("background-image: url('https://static.ziroom.com/phoenix/pc/images/a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -171.2px center;"), // 2
-                createSpanData("background-image: url('https://static.ziroom.com/phoenix/pc/images/a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -128.4px center;"), // 5
-                createSpanData("background-image: url('https://static.ziroom.com/phoenix/pc/images/a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: 0px center;"),        // 8
-                createSpanData("background-image: url('https://static.ziroom.com/phoenix/pc/images/a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -64.2px center;")   // 0
-            );
-
-            // 1. 解码价格
-            String price = PriceSpriteDecoder.decodePrice(priceSpanData);
-            assertEquals("2580", price);
-
-            // 2. 验证价格合理性
-            assertTrue(PriceSpriteDecoder.isValidPrice(price));
-
-            // 3. 验证精灵图识别
-            PriceSpriteDecoder.SpriteImageType spriteType = PriceSpriteDecoder.identifySpriteType(priceSpanData);
-            assertEquals(PriceSpriteDecoder.SpriteImageType.SPRITE_V1, spriteType);
-
-            // 4. 验证检测结果
-            PriceSpriteDecoder.SpriteDetectionResult detection = PriceSpriteDecoder.detectUnknownSprite(priceSpanData);
-            assertTrue(detection.isKnownSprite());
-        }
 
         @Test
         @DisplayName("多种精灵图混合数据处理")

@@ -89,16 +89,7 @@ public class ZiroomCrawler {
      * @return 该地铁站附近房源的平均每平米价格，获取失败时返回0.0
      */
     public double getAveragePrice(String url) {
-        try {
-            return RetryUtils.executeWithRetry(
-                    () -> crawlPriceData(url),
-                    config.getCrawlerMaxRetry(),
-                    1000
-            );
-        } catch (Exception e) {
-            System.out.println("价格获取失败，URL: " + url + ", 错误: " + e.getMessage());
-            return 0.0;
-        }
+        return crawlPriceData(url);
     }
 
     /**
@@ -231,41 +222,36 @@ public class ZiroomCrawler {
         List<Double> pricePerMeters = new ArrayList<>();
 
         playwrightManager.execute(page -> {
-            try {
-                page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
-                sleep();
+            page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+            sleep();
 
-                // 精灵图前置检测
-                if (!performSpritePreflightCheck(page)) {
-                    printUserFriendlyErrorMessage();
-                    throw new CrawlerException("发现未知精灵图类型，程序无法继续执行");
-                }
-
-                // 根据实际网站结构查找房源列表项
-                Locator houseItems = page.locator(".Z_list-box div.item");
-                int itemCount = houseItems.count();
-
-                System.out.println("从页面找到 " + itemCount + " 个房源项");
-
-                for (int i = 0; i < itemCount; i++) {
-                    try {
-                        Locator houseItem = houseItems.nth(i);
-                        RentalPrice price = parsePriceFromSprites(houseItem);
-                        if (price != null && isValidPrice(price)) {
-                            pricePerMeters.add(price.getPricePerSquareMeter());
-                        }
-                    } catch (Exception e) {
-                        // 忽略单个房源解析错误
-                        System.out.println("解析房源 " + i + " 时出错: " + e.getMessage());
-                    }
-                }
-
-                System.out.println("从 " + url + " 获取到 " + pricePerMeters.size() + " 个有效房源价格");
-
-            } catch (Exception e) {
-                System.out.println("访问页面出错 " + url + ": " + e.getMessage());
-                e.printStackTrace();
+            // 精灵图前置检测
+            if (!performSpritePreflightCheck(page)) {
+                printUserFriendlyErrorMessage();
+                return;
             }
+
+            // 根据实际网站结构查找房源列表项
+            Locator houseItems = page.locator(".Z_list-box div.item");
+            int itemCount = houseItems.count();
+
+            System.out.println("从页面找到 " + itemCount + " 个房源项");
+
+            for (int i = 0; i < itemCount; i++) {
+                try {
+                    Locator houseItem = houseItems.nth(i);
+                    Locator priceItem = houseItem.locator(".price-content .price");
+                    RentalPrice price = parsePriceFromSprites(priceItem);
+                    if (price != null && isValidPrice(price)) {
+                        pricePerMeters.add(price.getPricePerSquareMeter());
+                    }
+                } catch (Exception e) {
+                    // 忽略单个房源解析错误
+                    System.out.println("解析房源 " + i + " 时出错: " + e.getMessage());
+                }
+            }
+
+            System.out.println("从 " + url + " 获取到 " + pricePerMeters.size() + " 个有效房源价格");
         });
 
         if (pricePerMeters.isEmpty()) {
@@ -286,56 +272,51 @@ public class ZiroomCrawler {
      * @return 解码成功的租金价格对象，失败时返回null
      */
     private RentalPrice parsePriceFromSprites(Locator element) {
-        try {
-            // 提取面积信息
-            String elementText = element.textContent();
-            double area = extractArea(elementText);
-            if (area <= 0) {
-                return null;
-            }
+        // 提取面积信息
+        String elementText = element.textContent();
+        double area = extractArea(elementText);
+        if (area <= 0) {
+            return null;
+        }
 
-            // 获取价格精灵图元素的样式信息
-            Object result = element.evaluate("(element) => {" +
-                    "const priceSpans = element.querySelectorAll('span.num');" +
-                    "const spanData = [];" +
-                    "for (let span of priceSpans) {" +
-                    "    const style = span.style.cssText || span.getAttribute('style') || '';" +
-                    "    const bgImage = span.style.backgroundImage || '';" +
-                    "    if (bgImage.includes('price') || bgImage.includes('new-list')) {" +
-                    "        spanData.push({" +
-                    "            style: style," +
-                    "            backgroundImage: bgImage," +
-                    "            backgroundPosition: span.style.backgroundPosition || ''" +
-                    "        });" +
-                    "    }" +
-                    "}" +
-                    "return spanData;" +
-                    "}");
+        // 获取价格精灵图元素的样式信息
+        Object result = element.evaluate("""
+                (element) => {
+                const priceSpans = element.querySelectorAll('span.num');
+                const spanData = [];
+                for (let span of priceSpans) {
+                    const style = span?.style?.cssText || span?.getAttribute('style') || '';
+                    const bgImage = span?.style?.backgroundImage || '';
+                    if(!bgImage) continue;
+                    spanData.push({
+                        style: style,
+                        backgroundImage: bgImage,
+                        backgroundPosition: span.style.backgroundPosition || ''
+                    });
+                }
+                return spanData;
+                }""");
 
-            if (result instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
+        if (result instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
 
-                if (!spanDataList.isEmpty()) {
-                    String priceStr = PriceSpriteDecoder.decodePrice(spanDataList);
+            if (!spanDataList.isEmpty()) {
+                String priceStr = PriceSpriteDecoder.decodePrice(spanDataList);
 
-                    if (PriceSpriteDecoder.isValidPrice(priceStr)) {
-                        double price = Double.parseDouble(priceStr);
-                        System.out.println("精灵图解码成功: 价格=" + price + ", 面积=" + area);
-                        return new RentalPrice(price, area);
-                    } else {
-                        System.out.println("精灵图解码失败，价格字符串: " + priceStr);
-                        // 输出调试信息
-                        for (Map<String, Object> spanData : spanDataList) {
-                            System.out.println("  样式: " + spanData.get("style"));
-                            System.out.println("  位置: " + spanData.get("backgroundPosition"));
-                        }
+                if (PriceSpriteDecoder.isValidPrice(priceStr)) {
+                    double price = Double.parseDouble(priceStr);
+                    System.out.println("精灵图解码成功: 价格=" + price + ", 面积=" + area);
+                    return new RentalPrice(price, area);
+                } else {
+                    System.out.println("精灵图解码失败，价格字符串: " + priceStr);
+                    // 输出调试信息
+                    for (Map<String, Object> spanData : spanDataList) {
+                        System.out.println("  样式: " + spanData.get("style"));
+                        System.out.println("  位置: " + spanData.get("backgroundPosition"));
                     }
                 }
             }
-
-        } catch (Exception e) {
-            System.out.println("精灵图解析出错: " + e.getMessage());
         }
 
         return null;
@@ -352,73 +333,49 @@ public class ZiroomCrawler {
      * @return 检测通过返回true，发现未知精灵图返回false
      */
     private boolean performSpritePreflightCheck(Page page) {
-        try {
-            System.out.println("正在执行精灵图前置检测...");
+        System.out.println("正在执行精灵图前置检测...");
 
-            // 查找所有价格相关的span元素
-            // 只检测前10个元素
-            Object result = page.evaluate("""
-                    () => {
-                    const priceSpans = document.querySelectorAll('span.num, span[class*="num"]');
-                    const spanData = [];
-                    for (let i = 0; i < Math.max(priceSpans.length, 10); i++) {
-                        const span = priceSpans[i];
-                        const style = span.style.cssText || span.getAttribute('style') || '';
-                        const bgImage = span.style.backgroundImage || '';\
-                        spanData.push({
-                            style: style,
-                            backgroundImage: bgImage,
-                            backgroundPosition: span.style.backgroundPosition || ''
-                        });
-                    }
-                    return spanData;
-                    }""");
-
-            if (result instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
-
-                if (!spanDataList.isEmpty()) {
-                    // 使用PriceSpriteDecoder进行检测
-                    PriceSpriteDecoder.SpriteDetectionResult detection =
-                            PriceSpriteDecoder.detectUnknownSprite(spanDataList);
-
-                    System.out.println("精灵图检测结果: " + detection.getMessage());
-
-                    if (!detection.isKnownSprite()) {
-                        // 输出详细的调试信息
-                        System.err.println("========== 精灵图检测失败详情 ==========");
-                        System.err.println(detection.getMessage());
-                        System.err.println("=====================================");
-
-                        // 输出收集到的精灵图数据供开发者分析
-                        System.err.println("收集到的精灵图数据：");
-                        for (int i = 0; i < spanDataList.size(); i++) {
-                            Map<String, Object> spanData = spanDataList.get(i);
-                            System.err.println("  元素" + (i + 1) + ":");
-                            System.err.println("    样式: " + spanData.get("style"));
-                            System.err.println("    背景图片: " + spanData.get("backgroundImage"));
-                            System.err.println("    位置: " + spanData.get("backgroundPosition"));
-                        }
-
-                        return false; // 发现未知精灵图，检测失败
-                    } else {
-                        System.out.println("精灵图检测通过，使用: " + detection.getSpriteType().getDescription());
-                        return true; // 已知精灵图，检测通过
-                    }
-                } else {
-                    System.out.println("未找到精灵图元素，可能网站结构发生变化");
-                    return true; // 没有精灵图元素，放行（可能使用其他显示方式）
+        // 查找所有价格相关的span元素
+        Object result = page.evaluate("""
+                () => {
+                const priceSpans = document.querySelectorAll('span.num');
+                const spanData = [];
+                for (let i = 0; i < Math.max(priceSpans.length, 10); i++) {
+                    const span = priceSpans[i];
+                    const style = span?.style?.cssText || span?.getAttribute('style') || '';
+                    const bgImage = span?.style?.backgroundImage || '';
+                    if(!bgImage) continue;
+                    spanData.push({
+                        style: style,
+                        backgroundImage: bgImage,
+                        backgroundPosition: span.style.backgroundPosition || ''
+                    });
                 }
+                return spanData;
+                }""");
+
+        if (result instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
+
+            if (!spanDataList.isEmpty()) {
+                int failNum = 0;
+                // 输出收集到的精灵图数据供开发者分析
+                for (Map<String, Object> spanData : spanDataList) {
+                    PriceSpriteDecoder.SpriteImageType spriteImageType = PriceSpriteDecoder.identifySpriteType(List.of(spanData));
+                    if (spriteImageType == null) {
+                        System.err.println("出现未知精灵图，背景图片: " + spanData.get("backgroundImage"));
+                        failNum++;
+                    }
+                }
+                return failNum <= 0;
+            } else {
+                System.out.println("未找到精灵图元素，可能网站结构发生变化");
+                return false;
             }
-
-            return true; // 默认放行
-
-        } catch (Exception e) {
-            System.err.println("精灵图检测过程中出现异常: " + e.getMessage());
-            e.printStackTrace();
-            return false; // 异常情况下不放行
         }
+
+        return false;
     }
 
     /**
