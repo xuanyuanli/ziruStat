@@ -1,5 +1,6 @@
 package cn.xuanyuanli.rentradar.service;
 
+import cn.xuanyuanli.core.util.Numbers;
 import cn.xuanyuanli.rentradar.config.AppConfig;
 import cn.xuanyuanli.rentradar.crawler.ZiroomCrawler;
 import cn.xuanyuanli.rentradar.exception.CrawlerException;
@@ -149,11 +150,8 @@ public class SubwayDataService {
     private List<Subway> enrichWithPrices(List<Subway> stations) {
         for (Subway station : stations) {
             double avgPrice = crawler.getAveragePrice(station.getUrl());
-            if (avgPrice <= 0) {
-                return null;
-            }
             station.setSquareMeterOfPrice(avgPrice);
-            System.out.println("获取价格: " + station.getDisplayName() + " = " + avgPrice + " 元/㎡");
+            System.out.println("获取到价格: " + station.getDisplayName() + " = " + Numbers.moneyFormat(avgPrice) + " 元/㎡");
         }
 
         // 过滤掉无效数据

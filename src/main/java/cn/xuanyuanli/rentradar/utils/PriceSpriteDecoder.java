@@ -179,7 +179,6 @@ public class PriceSpriteDecoder {
         if (screenshot != null) {
             String ocrResult = SimpleOCRService.recognizeDigits(screenshot.get());
             if (isValidPrice(ocrResult)) {
-                System.out.println("OCR识别价格成功: " + ocrResult);
                 return ocrResult;
             }
         }
@@ -277,8 +276,7 @@ public class PriceSpriteDecoder {
                     price.append(digit);
                 } else {
                     // 如果找不到映射，记录未知的position值用于调试
-                    System.out.println("未知的background-position: " + position);
-                    return null; // 有未知位置时返回null，避免错误价格
+                    return null;
                 }
             }
         }
@@ -393,8 +391,8 @@ public class PriceSpriteDecoder {
 
         try {
             double price = Double.parseDouble(priceStr);
-            // 北京租房合理价格范围：500-50000元/月
-            return price >= 500 && price <= 50000;
+            // 北京租房合理价格范围：500-500000元/月
+            return price >= 500 && price <= 500000;
         } catch (NumberFormatException e) {
             return false;
         }

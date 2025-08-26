@@ -21,7 +21,7 @@ public class SimpleOCRService {
     private static final boolean OCR_AVAILABLE;
 
     static {
-        Tesseract tempTesseract = null;
+        Tesseract tempTesseract;
         boolean available = false;
 
         try {
@@ -68,12 +68,9 @@ public class SimpleOCRService {
             if (testResult != null && testResult.contains("123")) {
                 available = true;
                 System.out.println("OCR功能初始化成功");
-            } else {
-                System.out.println("OCR测试失败，将使用降级模式");
             }
-
         } catch (Exception e) {
-            System.out.println("OCR初始化失败: " + e.getMessage() + "，将使用智能识别模式");
+            throw new RuntimeException("OCR功能初始化失败");
         }
 
         TESSERACT = tempTesseract;
