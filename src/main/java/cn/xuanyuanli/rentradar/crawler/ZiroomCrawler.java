@@ -274,11 +274,6 @@ public class ZiroomCrawler {
 
         // 获取价格精灵图元素的样式信息
         Locator priceItem = element.locator(".price-content .price");
-        // 删除第一个子元素-货币
-        priceItem.locator(":first-child").evaluate("element => element.remove()");
-        // 删除最后一个子元素-后缀
-        priceItem.locator(":last-child").evaluate("element => element.remove()");
-
         Object result = priceItem.evaluate("""
                 (element) => {
                 const priceSpans = element.querySelectorAll('span.num');
@@ -301,7 +296,7 @@ public class ZiroomCrawler {
             List<Map<String, Object>> spanDataList = (List<Map<String, Object>>) result;
 
             if (!spanDataList.isEmpty()) {
-                String priceStr = PriceSpriteDecoder.decodePrice(spanDataList, priceItem::screenshot);
+                String priceStr = PriceSpriteDecoder.decodePrice(spanDataList);
 
                 if (PriceSpriteDecoder.isValidPrice(priceStr)) {
                     double price = Double.parseDouble(priceStr);

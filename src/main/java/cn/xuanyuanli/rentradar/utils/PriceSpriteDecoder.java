@@ -1,11 +1,19 @@
 package cn.xuanyuanli.rentradar.utils;
 
-import cn.xuanyuanli.rentradar.service.SimpleOCRService;
+import cn.xuanyuanli.core.util.Resources;
+import com.alibaba.fastjson2.JSON;
+import org.springframework.core.io.Resource;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,185 +31,74 @@ import java.util.regex.Pattern;
 public class PriceSpriteDecoder {
 
     /**
-     * 位置到数字的映射表
-     * 根据CSS精灵图的background-position值映射对应的数字
+     * 精灵图配置缓存：精灵图文件名/哈希 -> 精灵图配置
      */
-    private static final Map<String, String> POSITION_TO_DIGIT = new HashMap<>();
+    private static final Map<String, SpriteConfig> SPRITE_CONFIGS = new HashMap<>();
 
     /**
-     * 精灵图映射表：精灵图文件名/哈希 -> 位置映射配置
+     * 精灵图配置数据模型
      */
-    private static final Map<String, Map<String, String>> SPRITE_MAPPINGS = new HashMap<>();
+    @SuppressWarnings("unused")
+    static class SpriteConfig {
+        private String identifier;
+        private double pixelInterval;
+        private String digitOrder;
+        private Map<String, String> mapping;
 
-    /**
-     * 已知的精灵图文件标识符
-     */
-    public enum SpriteImageType {
-        SPRITE_V1("a9da4f199beb8d74bffa9500762fd7b7", "第一版精灵图"),
-        SPRITE_V2("f4c1f82540f8d287aa53492a44f5819b", "第二版精灵图"),
-        SPRITE_RED("img_pricenumber_list_red", "红色版精灵图"),
-        SPRITE_NEW("c4b718a0002eb143ea3484b373071495", "新版精灵图");
-
-        private final String identifier;
-        private final String description;
-
-        SpriteImageType(String identifier, String description) {
-            this.identifier = identifier;
-            this.description = description;
-        }
-
+        // Getters and setters
         public String getIdentifier() {
             return identifier;
         }
 
-        public String getDescription() {
-            return description;
+        public void setIdentifier(String identifier) {
+            this.identifier = identifier;
+        }
+
+        public void setPixelInterval(double pixelInterval) {
+            this.pixelInterval = pixelInterval;
+        }
+
+        public void setDigitOrder(String digitOrder) {
+            this.digitOrder = digitOrder;
+        }
+
+        public Map<String, String> getMapping() {
+            return mapping;
+        }
+
+        public void setMapping(Map<String, String> mapping) {
+            this.mapping = mapping;
+        }
+
+        public double getPixelInterval() {
+            return pixelInterval;
+        }
+
+        public String getDigitOrder() {
+            return digitOrder;
         }
     }
+
 
     static {
-        // 初始化各种精灵图的映射关系
-        initializeSpriteV1Mapping();
-        initializeSpriteV2Mapping();
-        initializeSpriteRedMapping();
-        initializeSpriteNewMapping();
-
-        // 默认使用第一版精灵图映射作为后备
-        POSITION_TO_DIGIT.putAll(SPRITE_MAPPINGS.get(SpriteImageType.SPRITE_V1.getIdentifier()));
+        // 动态加载所有精灵图配置文件
+        scanAndLoadSpriteConfigs();
     }
 
-    /**
-     * 初始化第一版精灵图映射 (a9da4f199beb8d74bffa9500762fd7b7.png)
-     * 数字排列顺序：8、6、7、0、4、1、5、9、2、3
-     */
-    private static void initializeSpriteV1Mapping() {
-        Map<String, String> v1Mapping = new HashMap<>();
-
-        // 21.4px间隔布局
-        v1Mapping.put("0px", "8");        // 第1个数字：8
-        v1Mapping.put("-21.4px", "6");    // 第2个数字：6  
-        v1Mapping.put("-42.8px", "7");    // 第3个数字：7
-        v1Mapping.put("-64.2px", "0");    // 第4个数字：0
-        v1Mapping.put("-85.6px", "4");    // 第5个数字：4
-        v1Mapping.put("-107.0px", "1");   // 第6个数字：1
-        v1Mapping.put("-107px", "1");   // 第6个数字：1
-        v1Mapping.put("-128.4px", "5");   // 第7个数字：5
-        v1Mapping.put("-149.8px", "9");   // 第8个数字：9
-        v1Mapping.put("-171.2px", "2");   // 第9个数字：2
-        v1Mapping.put("-192.6px", "3");   // 第10个数字：3
-
-        SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_V1.getIdentifier(), v1Mapping);
-    }
 
     /**
-     * 初始化第二版精灵图映射 (f4c1f82540f8d287aa53492a44f5819b.png)
-     * 数字排列顺序：4、9、7、8、1、2、3、6、0、5
-     */
-    private static void initializeSpriteV2Mapping() {
-        Map<String, String> v2Mapping = new HashMap<>();
-
-        // 21.4px间隔布局，数字排列顺序：4978123605
-        v2Mapping.put("0px", "4");        // 第1个数字：4
-        v2Mapping.put("-21.4px", "9");    // 第2个数字：9
-        v2Mapping.put("-42.8px", "7");    // 第3个数字：7  
-        v2Mapping.put("-64.2px", "8");    // 第4个数字：8
-        v2Mapping.put("-85.6px", "1");    // 第5个数字：1
-        v2Mapping.put("-107.0px", "2");   // 第6个数字：2
-        v2Mapping.put("-107px", "2");   // 第6个数字：2
-        v2Mapping.put("-128.4px", "3");   // 第7个数字：3
-        v2Mapping.put("-149.8px", "6");   // 第8个数字：6
-        v2Mapping.put("-171.2px", "0");   // 第9个数字：0
-        v2Mapping.put("-192.6px", "5");   // 第10个数字：5
-
-        SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_V2.getIdentifier(), v2Mapping);
-    }
-
-    /**
-     * 初始化红色版精灵图映射 (img_pricenumber_list_red.png)
-     * 数字排列顺序：8、6、5、2、0、3、9、1、4、7
-     */
-    private static void initializeSpriteRedMapping() {
-        Map<String, String> redMapping = new HashMap<>();
-
-        // 20px间隔布局，数字排列顺序：8652039147
-        redMapping.put("0px", "8");       // 第1个数字：8
-        redMapping.put("-20px", "6");     // 第2个数字：6
-        redMapping.put("-40px", "5");     // 第3个数字：5
-        redMapping.put("-60px", "2");     // 第4个数字：2  
-        redMapping.put("-80px", "0");     // 第5个数字：0
-        redMapping.put("-100px", "3");    // 第6个数字：3
-        redMapping.put("-120px", "9");    // 第7个数字：9
-        redMapping.put("-140px", "1");    // 第8个数字：1
-        redMapping.put("-160px", "4");    // 第9个数字：4
-        redMapping.put("-180px", "7");    // 第10个数字：7
-
-        SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_RED.getIdentifier(), redMapping);
-    }
-
-    /**
-     * 初始化新版精灵图映射 (c4b718a0002eb143ea3484b373071495.png)
-     * 数字排列顺序：9、3、1、0、8、6、7、5、4、2
-     */
-    private static void initializeSpriteNewMapping() {
-        Map<String, String> newMapping = new HashMap<>();
-
-        // 21.4px间隔布局，数字排列顺序：9310867542
-        newMapping.put("0px", "9");       // 第1个数字：9
-        newMapping.put("-21.4px", "3");   // 第2个数字：3
-        newMapping.put("-42.8px", "1");   // 第3个数字：1
-        newMapping.put("-64.2px", "0");   // 第4个数字：0  
-        newMapping.put("-85.6px", "8");   // 第5个数字：8
-        newMapping.put("-107.0px", "6");  // 第6个数字：6
-        newMapping.put("-107px", "6");  // 第6个数字：6
-        newMapping.put("-128.4px", "7");  // 第7个数字：7
-        newMapping.put("-149.8px", "5");  // 第8个数字：5
-        newMapping.put("-171.2px", "4");  // 第9个数字：4
-        newMapping.put("-192.6px", "2");  // 第10个数字：2
-
-        SPRITE_MAPPINGS.put(SpriteImageType.SPRITE_NEW.getIdentifier(), newMapping);
-    }
-
-    /**
-     * 解码精灵图价格（支持OCR降级）
+     * 解码精灵图价格
      * <p>
-     * 优先使用精灵图映射解码，失败时降级到OCR识别
-     * </p>
-     *
-     * @param priceSpanData 价格span元素的样式数据列表，包含style属性
-     * @param screenshot    价格区域截图，用于OCR降级
-     * @return 解码后的价格字符串，解码失败时返回null
-     */
-    public static String decodePrice(List<Map<String, Object>> priceSpanData, Supplier<byte[]> screenshot) {
-        // 1. 尝试精灵图映射解码
-        String result = decodePriceBySpriteMapping(priceSpanData);
-        if (isValidPrice(result)) {
-            return result;
-        }
-
-        // 2. 降级到OCR识别
-        if (screenshot != null) {
-            String ocrResult = SimpleOCRService.recognizeDigits(screenshot.get());
-            if (isValidPrice(ocrResult)) {
-                return ocrResult;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * 解码精灵图价格（自动识别精灵图类型）
-     * <p>
-     * 从包含价格数字的span元素列表中提取background-position值，
-     * 自动识别精灵图类型并使用对应的映射表解码价格。
+     * 使用精灵图映射解码价格，如果遇到未知精灵图则提示用户手动输入
      * </p>
      *
      * @param priceSpanData 价格span元素的样式数据列表，包含style属性
      * @return 解码后的价格字符串，解码失败时返回null
      */
     public static String decodePrice(List<Map<String, Object>> priceSpanData) {
-        return decodePrice(priceSpanData, null);
+        return decodePriceBySpriteMapping(priceSpanData);
     }
+
 
     private static String decodePriceBySpriteMapping(List<Map<String, Object>> priceSpanData) {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
@@ -209,18 +106,19 @@ public class PriceSpriteDecoder {
         }
 
         // 1. 识别精灵图类型
-        SpriteImageType spriteType = identifySpriteType(priceSpanData);
+        String spriteId = identifySpriteType(priceSpanData);
 
-        // 2. 使用对应的映射表解码
-        Map<String, String> mapping;
-        if (spriteType != null) {
-            // 使用识别到的精灵图映射
-            mapping = SPRITE_MAPPINGS.get(spriteType.getIdentifier());
-        } else {
-            // 无法识别精灵图类型时，使用默认映射表（V1版本）作为后备
-            mapping = POSITION_TO_DIGIT;
+        // 2. 获取精灵图配置
+        SpriteConfig config = SPRITE_CONFIGS.get(spriteId);
+        if (config == null) {
+            // 未知精灵图，提示用户手动输入
+            config = handleUnknownSprite(spriteId);
+            if (config == null) {
+                return null;
+            }
         }
-        return decodePriceWithMapping(priceSpanData, mapping);
+
+        return decodePriceWithMapping(priceSpanData, config.getMapping());
     }
 
     /**
@@ -228,9 +126,9 @@ public class PriceSpriteDecoder {
      * 通过分析背景图片URL来确定使用哪种精灵图
      *
      * @param priceSpanData 价格span数据
-     * @return 精灵图类型，如果无法识别返回null
+     * @return 精灵图标识符，如果无法识别返回null
      */
-    public static SpriteImageType identifySpriteType(List<Map<String, Object>> priceSpanData) {
+    public static String identifySpriteType(List<Map<String, Object>> priceSpanData) {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
             return null;
         }
@@ -245,9 +143,9 @@ public class PriceSpriteDecoder {
             String backgroundImage = extractBackgroundImage(style);
             if (backgroundImage != null) {
                 // 根据URL中的关键字识别精灵图类型
-                for (SpriteImageType type : SpriteImageType.values()) {
-                    if (backgroundImage.contains(type.getIdentifier())) {
-                        return type;
+                for (String identifier : SPRITE_CONFIGS.keySet()) {
+                    if (backgroundImage.contains(identifier)) {
+                        return identifier;
                     }
                 }
             }
@@ -344,32 +242,138 @@ public class PriceSpriteDecoder {
 
         try {
             double price = Double.parseDouble(priceStr);
-            // 北京租房合理价格范围：500-500000元/月
-            return price >= 500 && price <= 500000;
+            // 租房合理价格范围：100-500000元/月
+            return price >= 100 && price <= 500000;
         } catch (NumberFormatException e) {
             return false;
         }
     }
 
     /**
-     * 更新位置映射表
-     * <p>
-     * 运行时动态添加新的位置映射关系，用于适应网站的更新。
-     * </p>
-     *
-     * @param position background-position值
-     * @param digit    对应的数字
+     * 增强映射表，添加兼容性映射
+     * 例如："-107.0px" -> "1" 同时添加 "-107px" -> "1"
      */
-    public static void updateMapping(String position, String digit) {
-        POSITION_TO_DIGIT.put(position, digit);
+    private static void enhanceMapping(SpriteConfig config) {
+        Map<String, String> originalMapping = config.getMapping();
+        Map<String, String> enhancedMapping = new HashMap<>(originalMapping);
+
+        // 为所有以.0px结尾的key添加无小数版本
+        for (Map.Entry<String, String> entry : originalMapping.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+
+            if (key.endsWith(".0px")) {
+                String intKey = key.replace(".0px", "px");
+                enhancedMapping.put(intKey, value);
+            }
+        }
+
+        config.setMapping(enhancedMapping);
     }
 
     /**
-     * 获取当前的位置映射表（用于调试）
-     *
-     * @return 位置到数字的映射表副本
+     * 扫描并加载资源目录下的所有精灵图配置文件
      */
-    public static Map<String, String> getMappingTable() {
-        return new HashMap<>(POSITION_TO_DIGIT);
+    private static void scanAndLoadSpriteConfigs() {
+        Resource[] classPathAllResources = Resources.getClassPathAllResources("META-INF/sprite/*.json");
+        for (Resource resource : classPathAllResources) {
+            try (InputStream is = resource.getInputStream()) {
+                String jsonContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                SpriteConfig config = JSON.parseObject(jsonContent, SpriteConfig.class);
+
+                // 动态生成兼容性映射
+                enhanceMapping(config);
+
+                SPRITE_CONFIGS.put(config.getIdentifier(), config);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    /**
+     * 处理未知精灵图，提示用户手动输入数据
+     */
+    private static SpriteConfig handleUnknownSprite(String spriteId) {
+        if (spriteId == null) {
+            System.err.println("无法识别的精灵图类型！");
+            return null;
+        }
+
+        System.out.println("发现未知精灵图: " + spriteId);
+        System.out.println("请手动输入以下信息：");
+
+        Scanner scanner = new Scanner(System.in);
+
+        // 获取用户输入
+        System.out.print("像素间隔 (px): ");
+        double pixelInterval = Double.parseDouble(scanner.nextLine().trim());
+
+        System.out.print("数字顺序 (10位数字按出现顺序): ");
+        String digitOrder = scanner.nextLine().trim();
+
+        // 生成映射关系
+        Map<String, String> mapping = generateMapping(digitOrder, pixelInterval);
+
+        // 创建配置对象
+        SpriteConfig config = new SpriteConfig();
+        config.setIdentifier(spriteId);
+        config.setPixelInterval(pixelInterval);
+        config.setDigitOrder(digitOrder);
+        config.setMapping(mapping);
+
+        // 缓存配置
+        SPRITE_CONFIGS.put(spriteId, config);
+
+        // 保存到文件
+        saveSpriteConfig(config);
+
+        return config;
+    }
+
+    /**
+     * 根据数字顺序和像素间隔生成映射关系
+     */
+    private static Map<String, String> generateMapping(String digitOrder, double pixelInterval) {
+        Map<String, String> mapping = new HashMap<>();
+
+        for (int i = 0; i < digitOrder.length() && i < 10; i++) {
+            String position = (i == 0) ? "0px" : String.format("%.1fpx", -i * pixelInterval);
+            String digit = String.valueOf(digitOrder.charAt(i));
+            mapping.put(position, digit);
+
+            // 兼容整数格式
+            if (position.endsWith(".0px")) {
+                String intPosition = position.replace(".0px", "px");
+                mapping.put(intPosition, digit);
+            }
+        }
+
+        return mapping;
+    }
+
+    /**
+     * 保存精灵图配置到文件
+     */
+    private static void saveSpriteConfig(SpriteConfig config) {
+        try {
+            // 获取资源目录的物理路径
+            String userDir = System.getProperty("user.dir");
+            Path spritePath = Paths.get(userDir, "src", "main", "resources", "META-INF", "sprite");
+
+            // 确保目录存在
+            if (!Files.exists(spritePath)) {
+                Files.createDirectories(spritePath);
+            }
+
+            // 保存JSON文件
+            Path configFile = spritePath.resolve(config.getIdentifier() + ".json");
+            String jsonContent = JSON.toJSONString(config);
+            Files.writeString(configFile, jsonContent);
+
+            System.out.println("精灵图配置已保存到: " + configFile);
+        } catch (IOException e) {
+            System.err.println("保存精灵图配置失败: " + e.getMessage());
+        }
     }
 }

@@ -1,0 +1,17 @@
+{
+  "identifier": "img_pricenumber_list_red",
+  "pixelInterval": 20.0,
+  "digitOrder": "8652039147",
+  "mapping": {
+    "0px": "8",
+    "-20px": "6",
+    "-40px": "5",
+    "-60px": "2",
+    "-80px": "0",
+    "-100px": "3",
+    "-120px": "9",
+    "-140px": "1",
+    "-160px": "4",
+    "-180px": "7"
+  }
+}
