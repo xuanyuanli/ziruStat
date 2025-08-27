@@ -1,17 +1,18 @@
 {
   "identifier": "img_pricenumber_list_red",
+  "imageUrl": "https://static8.ziroom.com/phoenix/pc/images/2020/list/img_pricenumber_list_red.png",
   "pixelInterval": 20.0,
   "digitOrder": "8652039147",
   "mapping": {
-    "0px": "8",
-    "-20px": "6",
-    "-40px": "5",
-    "-60px": "2",
-    "-80px": "0",
-    "-100px": "3",
-    "-120px": "9",
-    "-140px": "1",
-    "-160px": "4",
-    "-180px": "7"
+    "0": "8",
+    "-20": "6",
+    "-40": "5",
+    "-60": "2",
+    "-80": "0",
+    "-100": "3",
+    "-120": "9",
+    "-140": "1",
+    "-160": "4",
+    "-180": "7"
   }
 }

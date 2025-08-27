@@ -2,6 +2,7 @@ package cn.xuanyuanli.rentradar.utils;
 
 import cn.xuanyuanli.core.util.Resources;
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
 import org.springframework.core.io.Resource;
 
 import java.io.IOException;
@@ -10,10 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,6 +39,7 @@ public class PriceSpriteDecoder {
     @SuppressWarnings("unused")
     static class SpriteConfig {
         private String identifier;
+        private String imageUrl;
         private double pixelInterval;
         private String digitOrder;
         private Map<String, String> mapping;
@@ -52,6 +51,14 @@ public class PriceSpriteDecoder {
 
         public void setIdentifier(String identifier) {
             this.identifier = identifier;
+        }
+        
+        public String getImageUrl() {
+            return imageUrl;
+        }
+        
+        public void setImageUrl(String imageUrl) {
+            this.imageUrl = imageUrl;
         }
 
         public void setPixelInterval(double pixelInterval) {
@@ -109,13 +116,17 @@ public class PriceSpriteDecoder {
             }
 
             // 1. 识别当前span的精灵图类型
-            String spriteId = identifySpriteTypeFromSingle(spanData);
+            String backgroundImage = getBackgroundImage(spanData);
+            String spriteId = null;
+            if (backgroundImage != null) {
+                spriteId = identifySpriteTypeFromBgImageUrl(backgroundImage);
+            }
 
             // 2. 获取精灵图配置
             SpriteConfig config = SPRITE_CONFIGS.get(spriteId);
             if (config == null && spriteId != null) {
                 // 未知精灵图，提示用户手动输入
-                config = handleUnknownSprite(spriteId);
+                config = handleUnknownSprite(spriteId, backgroundImage);
                 if (config == null) {
                     return null;
                 }
@@ -169,6 +180,24 @@ public class PriceSpriteDecoder {
      * @return 精灵图标识符，如果无法识别返回null
      */
     private static String identifySpriteTypeFromSingle(Map<String, Object> spanData) {
+        String backgroundImage = getBackgroundImage(spanData);
+        if (backgroundImage == null) {
+            return null;
+        }
+        return identifySpriteTypeFromBgImageUrl(backgroundImage);
+    }
+
+    private static String identifySpriteTypeFromBgImageUrl(String backgroundImage) {
+        // 根据URL中的关键字识别精灵图类型
+        // 从URL中提取文件名（不包括后缀）作为标识符
+        String fileName = backgroundImage.substring(backgroundImage.lastIndexOf('/') + 1);
+        if (fileName.contains(".")) {
+            return fileName.substring(0, fileName.lastIndexOf('.'));
+        }
+        return null;
+    }
+
+    private static String getBackgroundImage(Map<String, Object> spanData) {
         String style = (String) spanData.get("style");
         if (style == null) {
             return null;
@@ -177,14 +206,9 @@ public class PriceSpriteDecoder {
         // 提取背景图片URL
         String backgroundImage = extractBackgroundImage(style);
         if (backgroundImage != null) {
-            // 根据URL中的关键字识别精灵图类型
-            // 从URL中提取文件名（不包括后缀）作为标识符
-            String fileName = backgroundImage.substring(backgroundImage.lastIndexOf('/') + 1);
-            if (fileName.contains(".")) {
-                return fileName.substring(0, fileName.lastIndexOf('.'));
-            }
+            return backgroundImage.startsWith("https:") ? backgroundImage : ("https:" + backgroundImage);
         }
-        return null; // 无法识别
+        return null;
     }
 
     /**
@@ -210,18 +234,19 @@ public class PriceSpriteDecoder {
      * 从CSS样式字符串中提取background-position的X坐标值
      * <p>
      * 解析类似 "background-position: -149.8px center;" 的样式字符串，
-     * 提取其中的X坐标值用于数字映射。
+     * 提取其中的X坐标值并转换为纯数字格式用于映射查找。
      * </p>
      *
      * @param style CSS样式字符串
-     * @return 提取到的X坐标值，未找到时返回null
+     * @return 提取到的X坐标值（纯数字格式），未找到时返回null
      */
     private static String extractBackgroundPosition(String style) {
         // 匹配 background-position: -149.8px center 或 background-position: -149.8px 0px
-        Pattern pattern = Pattern.compile("background-position:\\s*(-?\\d+(?:\\.\\d+)?px)");
+        Pattern pattern = Pattern.compile("background-position:\\s*(-?\\d+(?:\\.\\d+)?)px");
         Matcher matcher = pattern.matcher(style);
 
         if (matcher.find()) {
+            // 返回纯数字格式，去掉px后缀
             return matcher.group(1);
         }
 
@@ -251,27 +276,6 @@ public class PriceSpriteDecoder {
         }
     }
 
-    /**
-     * 增强映射表，添加兼容性映射
-     * 例如："-107.0px" -> "1" 同时添加 "-107px" -> "1"
-     */
-    private static void enhanceMapping(SpriteConfig config) {
-        Map<String, String> originalMapping = config.getMapping();
-        Map<String, String> enhancedMapping = new HashMap<>(originalMapping);
-
-        // 为所有以.0px结尾的key添加无小数版本
-        for (Map.Entry<String, String> entry : originalMapping.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-
-            if (key.endsWith(".0px")) {
-                String intKey = key.replace(".0px", "px");
-                enhancedMapping.put(intKey, value);
-            }
-        }
-
-        config.setMapping(enhancedMapping);
-    }
 
     /**
      * 扫描并加载资源目录下的所有精灵图配置文件
@@ -283,8 +287,6 @@ public class PriceSpriteDecoder {
                 String jsonContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 SpriteConfig config = JSON.parseObject(jsonContent, SpriteConfig.class);
 
-                // 动态生成兼容性映射
-                enhanceMapping(config);
 
                 SPRITE_CONFIGS.put(config.getIdentifier(), config);
             } catch (IOException e) {
@@ -296,7 +298,7 @@ public class PriceSpriteDecoder {
     /**
      * 处理未知精灵图，提示用户手动输入数据
      */
-    private static SpriteConfig handleUnknownSprite(String spriteId) {
+    private static SpriteConfig handleUnknownSprite(String spriteId, String backgroundImage) {
         if (spriteId == null) {
             System.err.println("无法识别的精灵图类型！");
             return null;
@@ -307,7 +309,7 @@ public class PriceSpriteDecoder {
             return null;
         }
 
-        System.out.println("发现未知精灵图: " + spriteId);
+        System.out.println("发现未知精灵图: " + backgroundImage);
         System.out.println("请手动输入以下信息：");
 
         Scanner scanner = new Scanner(System.in);
@@ -325,6 +327,7 @@ public class PriceSpriteDecoder {
         // 创建配置对象
         SpriteConfig config = new SpriteConfig();
         config.setIdentifier(spriteId);
+        config.setImageUrl(backgroundImage);
         config.setPixelInterval(pixelInterval);
         config.setDigitOrder(digitOrder);
         config.setMapping(mapping);
@@ -366,18 +369,12 @@ public class PriceSpriteDecoder {
      * 根据数字顺序和像素间隔生成映射关系
      */
     private static Map<String, String> generateMapping(String digitOrder, double pixelInterval) {
-        Map<String, String> mapping = new HashMap<>();
+        Map<String, String> mapping = new LinkedHashMap<>();
 
         for (int i = 0; i < digitOrder.length() && i < 10; i++) {
-            String position = (i == 0) ? "0px" : String.format("%.1fpx", -i * pixelInterval);
+            String position = (i == 0) ? "0" : String.format("%.1f", -i * pixelInterval);
             String digit = String.valueOf(digitOrder.charAt(i));
             mapping.put(position, digit);
-
-            // 兼容整数格式
-            if (position.endsWith(".0px")) {
-                String intPosition = position.replace(".0px", "px");
-                mapping.put(intPosition, digit);
-            }
         }
 
         return mapping;
@@ -399,7 +396,7 @@ public class PriceSpriteDecoder {
 
             // 保存JSON文件
             Path configFile = spritePath.resolve(config.getIdentifier() + ".json");
-            String jsonContent = JSON.toJSONString(config);
+            String jsonContent = JSON.toJSONString(config, JSONWriter.Feature.PrettyFormat);
             Files.writeString(configFile, jsonContent);
 
             System.out.println("精灵图配置已保存到: " + configFile);

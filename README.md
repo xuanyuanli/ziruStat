@@ -16,7 +16,7 @@
 **核心技术栈**
 - **后端框架**: 基于 xuanyuanli/jujube-parent 3.1.2
 - **网页爬虫**: playwright-stealth-pool + jsoup
-- **OCR识别**: Tesseract（智能降级处理）
+- **精灵图解码**: CSS精灵图智能识别系统
 - **数据处理**: fastjson2
 - **地图API**: 高德地图
 - **测试框架**: JUnit Jupiter
@@ -158,12 +158,13 @@ rm build/data/subway-prices.json      # 重新获取价格数据
 - 详细的执行日志和统计信息
 - 价格合理性检查和过滤
 
-### 🔍 智能OCR识别
-- **Tesseract OCR引擎**: 基于tess4j的数字识别能力
-- **智能降级处理**: OCR不可用时自动回退，保证系统稳定性
-- **多路径Tessdata**: 自动检测多种可能的训练数据路径
-- **图像预处理**: 放大、灰度化、对比度增强提升识别准确率
-- **结果验证**: 数字过滤、长度限制、价格合理性检查
+### 🔍 精灵图智能识别系统
+- **动态配置加载**: 基于JSON配置文件的精灵图映射系统
+- **自动识别机制**: 根据CSS背景图URL自动匹配对应配置
+- **用户交互扩展**: 遇到未知精灵图时引导用户手动配置
+- **兼容性处理**: 自动处理`-107px`和`-107.0px`等格式差异
+- **配置持久化**: 新识别的精灵图配置自动保存供后续使用
+- **测试环境友好**: 测试运行时跳过用户交互，避免阻塞
 
 ### 🎯 现代化架构设计
 - **清晰的服务分层**: 配置层、服务层、工具层职责分离
@@ -188,7 +189,6 @@ src/main/java/cn/xuanyuanli/rentradar/
 ├── crawler/ZiroomCrawler.java        # 爬虫实现
 ├── service/                          # 服务层
 │   ├── CacheManager.java             # 缓存管理器
-│   ├── SimpleOCRService.java         # OCR识别服务（智能降级）
 │   ├── SubwayDataService.java        # 数据收集服务
 │   ├── LocationService.java          # 位置服务
 │   └── VisualizationService.java     # 可视化服务

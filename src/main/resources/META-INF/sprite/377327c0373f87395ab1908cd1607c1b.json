@@ -1,0 +1,18 @@
+{
+  "identifier": "377327c0373f87395ab1908cd1607c1b",
+  "imageUrl": "https://static8.ziroom.com/phoenix/pc/images/price/new-list/377327c0373f87395ab1908cd1607c1b.png",
+  "pixelInterval": 21.4,
+  "digitOrder": "6547098213",
+  "mapping": {
+    "0": "6",
+    "-21.4": "5",
+    "-42.8": "4",
+    "-64.2": "7",
+    "-85.6": "0",
+    "-107.0": "9",
+    "-128.4": "8",
+    "-149.8": "2",
+    "-171.2": "1",
+    "-192.6": "3"
+  }
+}

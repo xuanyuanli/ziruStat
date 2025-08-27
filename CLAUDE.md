@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **核心技术栈**
 - **后端框架**: 基于 xuanyuanli/jujube-parent 3.1.2
 - **网页爬虫**: playwright-stealth-pool + jsoup
-- **OCR识别**: Tesseract（tess4j）
+- **精灵图解码**: CSS精灵图智能识别系统
 - **数据处理**: fastjson2
 - **地图API**: 高德地图
 - **测试框架**: JUnit Jupiter
@@ -47,7 +47,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **服务层** (`service/`)
 - `CacheManager.java` - 缓存管理器，统一管理数据缓存策略
-- `SimpleOCRService.java` - OCR识别服务，智能降级处理机制
 - `SubwayDataService.java` - 地铁数据收集和处理服务
 - `LocationService.java` - 地理位置服务，调用高德地图API
 - `VisualizationService.java` - 数据可视化服务，生成HTML地图
@@ -78,13 +77,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 智能请求频率控制
 - 支持代理和 User-Agent 轮换
 
-**🔍 智能OCR识别**
-- **Tesseract OCR引擎**: 基于tess4j的数字识别能力
-- **智能降级处理**: OCR不可用时自动回退，保证系统稳定性  
-- **多路径Tessdata**: 自动检测多种可能的训练数据路径
-- **图像预处理**: 3倍放大、灰度化、对比度增强提升识别准确率
-- **结果验证**: 数字过滤、长度限制（≤8位）、价格合理性检查（500-99999）
-- **双重保障**: 精灵图映射失败时，OCR作为降级方案保证价格识别
+**🔍 精灵图智能识别系统**
+- **JSON配置驱动**: 精灵图映射数据存储在META-INF/sprite目录下的JSON文件中
+- **动态配置加载**: 启动时自动扫描并加载所有精灵图配置文件
+- **自动格式兼容**: 智能处理-107px和-107.0px等不同CSS格式
+- **用户交互扩展**: 遇到未知精灵图时引导用户手动输入配置信息
+- **配置持久化**: 新识别的精灵图配置自动保存到文件系统
+- **测试环境友好**: 自动检测测试环境，避免用户交互阻塞测试运行
 
 **🎯 现代化架构设计**
 - **清晰的服务分层**: 配置层、服务层、工具层职责分离
@@ -100,6 +99,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - 获取租房价格数据（爬取自如网站）
 2. **数据可视化**: 在地图上标记各站点价格信息
 3. **智能缓存**: 分级缓存优化，避免重复请求
+
+### 精灵图配置文件结构
+
+项目使用JSON文件管理精灵图配置，位于`src/main/resources/META-INF/sprite/`：
+
+```
+META-INF/sprite/
+├── a9da4f199beb8d74bffa9500762fd7b7.json  # 第一版精灵图
+├── f4c1f82540f8d287aa53492a44f5819b.json  # 第二版精灵图  
+├── img_pricenumber_list_red.json          # 红色版精灵图
+└── c4b718a0002eb143ea3484b373071495.json  # 新版精灵图
+```
+
+**配置文件格式**:
+```json
+{
+  "identifier": "a9da4f199beb8d74bffa9500762fd7b7",
+  "description": "第一版精灵图",
+  "pixelInterval": 21.4,
+  "digitOrder": "8670415923",
+  "mapping": {
+    "0px": "8",
+    "-21.4px": "6",
+    "-42.8px": "7"
+  }
+}
+```
 
 ### 生成文件
 
