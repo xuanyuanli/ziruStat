@@ -34,13 +34,6 @@ public class ZiruStatApplication {
      */
     public static void main(String[] args) {
         ZiruStatApplication app = new ZiruStatApplication();
-        
-        // 处理命令行参数
-        if (args.length > 0 && "--clear-progress".equals(args[0])) {
-            app.clearProgress();
-            return;
-        }
-        
         app.run();
     }
 
@@ -135,22 +128,5 @@ public class ZiruStatApplication {
         System.out.println();
         System.out.println("提示：如需重新获取价格数据，请运行：java -jar zirustat.jar --clear-progress");
     }
-    
-    /**
-     * 清除价格获取进度缓存
-     */
-    private void clearProgress() {
-        printWelcomeMessage();
-        System.out.println("=== 清除价格获取进度缓存 ===");
-        
-        try {
-            SubwayDataService dataService = serviceContainer.getSubwayDataService();
-            dataService.clearPriceProgress();
-            System.out.println("进度缓存已清除，下次运行将重新获取所有价格数据。");
-        } catch (Exception e) {
-            System.err.println("清除进度缓存失败: " + e.getMessage());
-        } finally {
-            serviceContainer.shutdown();
-        }
-    }
+
 }

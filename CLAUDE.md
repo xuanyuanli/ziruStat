@@ -167,3 +167,5 @@ mvn exec:java -Dexec.mainClass="cn.xuanyuanli.rentradar.ZiruStatApplication"
 
 ## 规则
 - properties 文件编码是ISO-8859-1，写入中文需要注意编码问题
+- 使用中文回答问题
+- 总是使用最新的JDK API（比如HttpClient等）和框架API

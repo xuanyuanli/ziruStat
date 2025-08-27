@@ -56,7 +56,7 @@ public class SubwayDataService {
         // 3. 获取价格数据
         List<Subway> stationsWithPrice = getPriceData(stationsWithLocation);
 
-        System.out.println("地铁数据收集完成，共 " + stationsWithPrice.size() + " 个站点");
+        System.out.println("地铁数据收集完成，共 " + stations.size() + " 个站点" + "， " + stationsWithLocation.size() + "个站点位置， " + stationsWithPrice.size() + "个站点价格");
         return stationsWithPrice;
     }
 
@@ -153,14 +153,14 @@ public class SubwayDataService {
     private List<Subway> enrichWithPricesWithResume(List<Subway> stations) {
         // 加载进度缓存
         ProgressCacheManager.PriceProgress progress = progressCacheManager.loadProgress();
-        
+
         // 如果有缓存数据且未过期，先从缓存恢复
         List<Subway> result = new ArrayList<>();
         if (!progress.getCompletedStations().isEmpty()) {
             result = progressCacheManager.convertToSubwayList(progress, stations);
             System.out.println(progressCacheManager.getProgressInfo(progress, stations.size()));
         }
-        
+
         // 处理剩余未完成的站点
         int processedCount = 0;
         int total = stations.size() - progress.getCompletedStations().size();
@@ -181,7 +181,7 @@ public class SubwayDataService {
                         station.getDisplayName() + " = " + Numbers.moneyFormat(avgPrice) + " 元/㎡");
             }
         }
-        
+
         System.out.println("价格数据获取完成，共 " + result.size() + " 个站点有效");
         return result;
     }

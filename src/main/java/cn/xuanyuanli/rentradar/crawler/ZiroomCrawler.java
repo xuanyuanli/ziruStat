@@ -197,7 +197,7 @@ public class ZiroomCrawler {
      * @return 该页面房源的平均每平米价格，没有有效数据时返回0.0
      */
     public double getAveragePrice(String url) {
-        List<Double> pricePerMeters = new ArrayList<>();
+        List<RentalPrice> rentalPrices = new ArrayList<>();
 
         playwrightManager.execute(page -> {
             page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
@@ -224,26 +224,26 @@ public class ZiroomCrawler {
                     }
                 }
                 if (price != null && isValidPrice(price)) {
-                    pricePerMeters.add(price.getPricePerSquareMeter());
+                    rentalPrices.add(price);
                 }
             }
         });
 
-        if (pricePerMeters.isEmpty()) {
+        if (rentalPrices.isEmpty()) {
             return 0.0;
         }
 
         // 异常值检测：使用四分位数间距(IQR)方法过滤异常值
-        List<Double> filteredPrices = removeOutliers(pricePerMeters);
+        List<RentalPrice> filteredPrices = removeOutliers(rentalPrices);
         
         if (filteredPrices.isEmpty()) {
             System.out.println("所有价格数据都被识别为异常值，使用原始数据计算平均值");
-            filteredPrices = pricePerMeters;
-        } else if (filteredPrices.size() < pricePerMeters.size()) {
-            System.out.println("检测到 " + (pricePerMeters.size() - filteredPrices.size()) + " 个异常价格数据，已过滤");
+            filteredPrices = rentalPrices;
+        } else if (filteredPrices.size() < rentalPrices.size()) {
+            System.out.println("检测到 " + (rentalPrices.size() - filteredPrices.size()) + " 个异常价格数据，已过滤");
         }
 
-        return filteredPrices.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        return filteredPrices.stream().mapToDouble(RentalPrice::getPricePerSquareMeter).average().orElse(0.0);
     }
 
     /**
@@ -353,39 +353,46 @@ public class ZiroomCrawler {
      * 小于 Q1 - 1.5 * IQR 或大于 Q3 + 1.5 * IQR 的值
      * </p>
      *
-     * @param prices 原始价格列表
-     * @return 过滤异常值后的价格列表
+     * @param rentalPrices 原始租金价格对象列表
+     * @return 过滤异常值后的租金价格对象列表
      */
-    private List<Double> removeOutliers(List<Double> prices) {
-        if (prices.size() < 4) {
-            return new ArrayList<>(prices);
+    private List<RentalPrice> removeOutliers(List<RentalPrice> rentalPrices) {
+        if (rentalPrices.size() < 4) {
+            return new ArrayList<>(rentalPrices);
         }
 
-        List<Double> sortedPrices = new ArrayList<>(prices);
-        Collections.sort(sortedPrices);
+        List<Double> pricePerMeters = rentalPrices.stream()
+                .map(RentalPrice::getPricePerSquareMeter)
+                .sorted()
+                .toList();
 
-        double q1 = getQuartile(sortedPrices, 0.25);
-        double q3 = getQuartile(sortedPrices, 0.75);
+        double q1 = getQuartile(pricePerMeters, 0.25);
+        double q3 = getQuartile(pricePerMeters, 0.75);
         double iqr = q3 - q1;
 
         double lowerBound = q1 - 1.5 * iqr;
         double upperBound = q3 + 1.5 * iqr;
 
-        List<Double> filteredPrices = new ArrayList<>();
-        List<Double> outliers = new ArrayList<>();
+        List<RentalPrice> filteredPrices = new ArrayList<>();
+        List<RentalPrice> outliers = new ArrayList<>();
         
-        for (Double price : prices) {
-            if (price >= lowerBound && price <= upperBound) {
+        for (RentalPrice price : rentalPrices) {
+            double pricePerMeter = price.getPricePerSquareMeter();
+            if (pricePerMeter >= lowerBound && pricePerMeter <= upperBound) {
                 filteredPrices.add(price);
             } else {
                 outliers.add(price);
             }
         }
 
-        // 输出异常值信息
+        // 输出异常值信息，包括租金和面积
         if (!outliers.isEmpty()) {
-            System.out.println("检测到异常价格值: " + outliers + "，边界范围: [" + 
+            System.out.println("检测到异常价格值，边界范围: [" + 
                 String.format("%.2f", lowerBound) + ", " + String.format("%.2f", upperBound) + "]");
+            for (RentalPrice outlier : outliers) {
+                System.out.println("\t异常数据: 租金=" + outlier.getPrice() + "元, 面积=" +
+                    outlier.getArea() + "㎡, 单价=" + String.format("%.2f", outlier.getPricePerSquareMeter()) + "元/㎡");
+            }
         }
 
         return filteredPrices;
