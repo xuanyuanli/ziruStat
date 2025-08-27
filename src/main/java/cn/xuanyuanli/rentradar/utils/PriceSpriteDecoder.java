@@ -52,11 +52,11 @@ public class PriceSpriteDecoder {
         public void setIdentifier(String identifier) {
             this.identifier = identifier;
         }
-        
+
         public String getImageUrl() {
             return imageUrl;
         }
-        
+
         public void setImageUrl(String imageUrl) {
             this.imageUrl = imageUrl;
         }
@@ -137,6 +137,10 @@ public class PriceSpriteDecoder {
                 String position = extractBackgroundPosition(style);
                 if (position != null) {
                     String digit = config.getMapping().get(position);
+                    // 解决整数时，小数点后多余 .0 的问题
+                    if (digit == null) {
+                        digit = config.getMapping().get(position + ".0");
+                    }
                     if (digit != null) {
                         price.append(digit);
                     } else {
