@@ -152,7 +152,7 @@ class PriceSpriteDecoderTest {
         unknownData.add(createSpanData("background-image: url('unknown_sprite_12345.png'); background-position: -21.4px center;"));
         
         String spriteType = PriceSpriteDecoder.identifySpriteType(unknownData);
-        assertNull(spriteType);
+        assertEquals("unknown_sprite_12345",spriteType);
     }
 
     @Test
@@ -208,5 +208,17 @@ class PriceSpriteDecoderTest {
         
         String price = PriceSpriteDecoder.decodePrice(mixedData);
         assertEquals("12", price);
+    }
+
+    @Test
+    @DisplayName("测试未知精灵图处理（测试环境下不保存文件）")
+    void testHandleUnknownSprite() {
+        // 这里主要测试精灵图识别逻辑
+        List<Map<String, Object>> unknownSpriteData = new ArrayList<>();
+        unknownSpriteData.add(createSpanData("background-image: url('unknown_sprite_hash_12345.png'); background-position: -21.4px center;"));
+        
+        // 验证能正确识别为未知精灵图
+        String decodePrice = PriceSpriteDecoder.decodePrice(unknownSpriteData);
+        assertNull(decodePrice, "测试环境为null");
     }
 }

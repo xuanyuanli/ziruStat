@@ -96,26 +96,21 @@ public class PriceSpriteDecoder {
      * @return 解码后的价格字符串，解码失败时返回null
      */
     public static String decodePrice(List<Map<String, Object>> priceSpanData) {
-        return decodePriceBySpriteMapping(priceSpanData);
-    }
-
-
-    private static String decodePriceBySpriteMapping(List<Map<String, Object>> priceSpanData) {
         if (priceSpanData == null || priceSpanData.isEmpty()) {
             return null;
         }
 
         StringBuilder price = new StringBuilder();
-        
+
         for (Map<String, Object> spanData : priceSpanData) {
             String style = (String) spanData.get("style");
             if (style == null) {
                 continue;
             }
-            
+
             // 1. 识别当前span的精灵图类型
             String spriteId = identifySpriteTypeFromSingle(spanData);
-            
+
             // 2. 获取精灵图配置
             SpriteConfig config = SPRITE_CONFIGS.get(spriteId);
             if (config == null && spriteId != null) {
@@ -125,7 +120,7 @@ public class PriceSpriteDecoder {
                     return null;
                 }
             }
-            
+
             // 3. 解码当前span
             if (config != null) {
                 String position = extractBackgroundPosition(style);
@@ -140,9 +135,10 @@ public class PriceSpriteDecoder {
                 }
             }
         }
-        
+
         return !price.isEmpty() ? price.toString() : null;
     }
+
 
     /**
      * 识别精灵图类型（从多个span数据中识别，返回第一个找到的）
@@ -165,10 +161,10 @@ public class PriceSpriteDecoder {
 
         return null; // 无法识别
     }
-    
+
     /**
      * 从单个span数据识别精灵图类型
-     * 
+     *
      * @param spanData 单个span的样式数据
      * @return 精灵图标识符，如果无法识别返回null
      */
@@ -182,45 +178,13 @@ public class PriceSpriteDecoder {
         String backgroundImage = extractBackgroundImage(style);
         if (backgroundImage != null) {
             // 根据URL中的关键字识别精灵图类型
-            for (String identifier : SPRITE_CONFIGS.keySet()) {
-                if (backgroundImage.contains(identifier)) {
-                    return identifier;
-                }
+            // 从URL中提取文件名（不包括后缀）作为标识符
+            String fileName = backgroundImage.substring(backgroundImage.lastIndexOf('/') + 1);
+            if (fileName.contains(".")) {
+                return fileName.substring(0, fileName.lastIndexOf('.'));
             }
         }
-
         return null; // 无法识别
-    }
-
-    /**
-     * 使用指定映射表解码价格
-     *
-     * @param priceSpanData 价格span数据
-     * @param mapping       位置到数字的映射表
-     * @return 解码后的价格，失败时返回null
-     */
-    private static String decodePriceWithMapping(List<Map<String, Object>> priceSpanData, Map<String, String> mapping) {
-        StringBuilder price = new StringBuilder();
-
-        for (Map<String, Object> spanData : priceSpanData) {
-            String style = (String) spanData.get("style");
-            if (style == null) {
-                continue;
-            }
-
-            String position = extractBackgroundPosition(style);
-            if (position != null) {
-                String digit = mapping.get(position);
-                if (digit != null) {
-                    price.append(digit);
-                } else {
-                    // 如果找不到映射，记录未知的position值用于调试
-                    return null;
-                }
-            }
-        }
-
-        return !price.isEmpty() ? price.toString() : null;
     }
 
     /**
@@ -338,6 +302,11 @@ public class PriceSpriteDecoder {
             return null;
         }
 
+        // 检测是否为测试环境
+        if (isTestEnvironment()) {
+            return null;
+        }
+
         System.out.println("发现未知精灵图: " + spriteId);
         System.out.println("请手动输入以下信息：");
 
@@ -363,33 +332,27 @@ public class PriceSpriteDecoder {
         // 缓存配置
         SPRITE_CONFIGS.put(spriteId, config);
 
-        // 检测是否为测试环境
-        if (!isTestEnvironment()) {
-            // 保存到文件
-            saveSpriteConfig(config);
-        }
+        saveSpriteConfig(config);
 
         return config;
     }
 
     /**
      * 检测是否为测试环境
-     * 
+     *
      * @return 如果在测试环境中运行返回true，否则返回false
      */
     private static boolean isTestEnvironment() {
         try {
             // 检查是否存在JUnit类
             Class.forName("org.junit.jupiter.api.Test");
-            
+
             // 检查调用堆栈中是否包含JUnit相关的类
             StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
             for (StackTraceElement element : stackTrace) {
                 String className = element.getClassName();
-                if (className.contains("org.junit") || 
-                    className.contains("org.testng") ||
-                    className.endsWith("Test") ||
-                    className.contains(".test.")) {
+                if (className.contains("org.junit") ||
+                        className.contains("org.testng")) {
                     return true;
                 }
             }
@@ -398,7 +361,7 @@ public class PriceSpriteDecoder {
             return false;
         }
     }
-    
+
     /**
      * 根据数字顺序和像素间隔生成映射关系
      */
