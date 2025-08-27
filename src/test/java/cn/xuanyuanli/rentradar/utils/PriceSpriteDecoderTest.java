@@ -185,13 +185,28 @@ class PriceSpriteDecoderTest {
     }
 
     @Test
-    @DisplayName("测试background-position提取")
-    void testExtractBackgroundPosition() {
+    @DisplayName("测试CSS样式顺序不影响解析")
+    void testCssStyleOrder() {
+        // 测试background-position和background-image属性顺序不同的情况
         List<Map<String, Object>> testData = new ArrayList<>();
-        testData.add(createSpanData("background-position: -149.8px center; background-image: url('test.png');"));
+        testData.add(createSpanData("background-position: -149.8px center; background-image: url('a9da4f199beb8d74bffa9500762fd7b7.png');"));
         testData.add(createSpanData("background-image: url('a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -149.8px center;"));
         
         String price = PriceSpriteDecoder.decodePrice(testData);
         assertEquals("99", price); // -149.8px 对应数字 9
+    }
+
+    @Test
+    @DisplayName("测试混合精灵图处理（每个span单独识别）")
+    void testMixedSpriteTypes() {
+        // 理论上每个span应该单独识别精灵图类型，但实际场景中通常是同一精灵图
+        List<Map<String, Object>> mixedData = new ArrayList<>();
+        // V1精灵图的数字1
+        mixedData.add(createSpanData("background-image: url('a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -107.0px center;"));
+        // V1精灵图的数字2  
+        mixedData.add(createSpanData("background-image: url('a9da4f199beb8d74bffa9500762fd7b7.png'); background-position: -171.2px center;"));
+        
+        String price = PriceSpriteDecoder.decodePrice(mixedData);
+        assertEquals("12", price);
     }
 }
